@@ -41,10 +41,13 @@
             {{ formatTime(row.created_at) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="280" fixed="right">
+        <el-table-column label="操作" width="340" fixed="right">
           <template #default="{ row }">
             <el-button size="small" text type="primary" @click="handleEdit(row)">
               编辑
+            </el-button>
+            <el-button size="small" text type="primary" @click="handleViewLogs(row)">
+              日志
             </el-button>
             <el-button
               size="small"
@@ -208,12 +211,69 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- 日志对话框 -->
+    <el-dialog
+      v-model="logDialogVisible"
+      :title="`${currentAccount.name} - 监控日志`"
+      width="900px"
+      @close="handleCloseLogDialog"
+    >
+      <div style="margin-bottom: 15px">
+        <el-select v-model="logFilter.type" placeholder="事件类型" clearable style="width: 150px; margin-right: 10px">
+          <el-option label="全部" value="" />
+          <el-option label="任务启动" value="task_start" />
+          <el-option label="任务停止" value="task_stop" />
+          <el-option label="开机请求" value="boot" />
+          <el-option label="开机成功" value="boot_success" />
+          <el-option label="开机失败" value="boot_failed" />
+        </el-select>
+        <el-button @click="loadAccountLogs">
+          <el-icon><Refresh /></el-icon>
+          刷新
+        </el-button>
+      </div>
+
+      <el-table :data="logs" v-loading="logsLoading" max-height="450">
+        <el-table-column prop="timestamp" label="时间" width="180">
+          <template #default="{ row }">
+            {{ formatTime(row.timestamp) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="type" label="类型" width="100">
+          <template #default="{ row }">
+            <el-tag :type="getEventTypeTag(row.type)" size="small">
+              {{ getEventTypeText(row.type) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="message" label="消息" min-width="250" />
+        <el-table-column prop="status" label="状态" width="80">
+          <template #default="{ row }">
+            <el-tag :type="getStatusTag(row.status)" size="small">
+              {{ row.status }}
+            </el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <el-pagination
+        v-model:current-page="logFilter.page"
+        v-model:page-size="logFilter.limit"
+        :total="logTotal"
+        :page-sizes="[20, 50, 100]"
+        layout="total, sizes, prev, pager, next"
+        style="margin-top: 15px; justify-content: center"
+        @current-change="loadAccountLogs"
+        @size-change="loadAccountLogs"
+      />
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
-import { accountAPI } from '@/api'
+import { accountAPI, logAPI } from '@/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh } from '@element-plus/icons-vue'
 
@@ -236,6 +296,18 @@ const verifyInfo = ref({
 })
 const countdown = ref(0)
 let countdownTimer = null
+
+// 日志相关
+const logDialogVisible = ref(false)
+const logsLoading = ref(false)
+const logs = ref([])
+const logTotal = ref(0)
+const currentAccount = ref({ id: '', name: '' })
+const logFilter = reactive({
+  page: 1,
+  limit: 20,
+  type: ''
+})
 
 const form = reactive({
   id: '',
@@ -512,6 +584,79 @@ const stopCountdown = () => {
     clearInterval(countdownTimer)
     countdownTimer = null
   }
+}
+
+// 查看日志
+const handleViewLogs = (row) => {
+  currentAccount.value = { id: row.id, name: row.name }
+  logFilter.page = 1
+  logFilter.type = ''
+  logDialogVisible.value = true
+  loadAccountLogs()
+}
+
+// 加载账号日志
+const loadAccountLogs = async () => {
+  logsLoading.value = true
+  try {
+    const res = await logAPI.list({
+      page: logFilter.page,
+      limit: logFilter.limit,
+      account_id: currentAccount.value.id,
+      type: logFilter.type
+    })
+    logs.value = res.data.events || []
+    logTotal.value = res.data.total || 0
+  } catch (error) {
+    console.error('加载日志失败:', error)
+    ElMessage.error('加载日志失败')
+  } finally {
+    logsLoading.value = false
+  }
+}
+
+// 关闭日志对话框
+const handleCloseLogDialog = () => {
+  logs.value = []
+  logTotal.value = 0
+  currentAccount.value = { id: '', name: '' }
+}
+
+// 事件类型标签
+const getEventTypeTag = (type) => {
+  const map = {
+    'task_start': 'success',
+    'task_stop': 'info',
+    'boot': 'warning',
+    'boot_success': 'success',
+    'boot_failed': 'danger'
+  }
+  return map[type] || 'info'
+}
+
+// 事件类型文本
+const getEventTypeText = (type) => {
+  const map = {
+    'task_start': '启动',
+    'task_stop': '停止',
+    'boot': '开机',
+    'boot_success': '成功',
+    'boot_failed': '失败',
+    'account_add': '添加',
+    'account_update': '更新',
+    'account_delete': '删除'
+  }
+  return map[type] || type
+}
+
+// 状态标签
+const getStatusTag = (status) => {
+  const map = {
+    'success': 'success',
+    'failed': 'danger',
+    'info': 'info'
+  }
+  return map[status] || 'info'
 }
 
 onMounted(() => {
