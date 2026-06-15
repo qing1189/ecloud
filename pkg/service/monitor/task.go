@@ -48,7 +48,7 @@ func (t *MonitorTask) checkPublic() {
 	machineList := body["machineList"].([]interface{})
 
 	for _, machine := range machineList {
-		info := machine.(map[string]interface)
+		info := machine.(map[string]interface{})
 
 		computer := ecloud.ComputerInfo{
 			MachineID:   info["machineId"].(string),
