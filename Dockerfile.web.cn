@@ -16,8 +16,8 @@ RUN npm config set registry https://registry.npmmirror.com && \
 # 复制前端源代码
 COPY web/ .
 
-# 构建前端（输出到 ../static，即 /app/static）
-RUN npm run build
+# 构建前端（输出到 ./dist）
+RUN npm run build -- --outDir=./dist
 
 # 阶段 2：后端构建
 FROM golang:1.23-alpine AS backend-builder
@@ -35,8 +35,8 @@ RUN go env -w GOPROXY=https://ecloud.10086.cn/api/query/developer/nexus/reposito
 # 复制后端源代码
 COPY . .
 
-# 复制前端构建产物（从 frontend-builder 的 /app/static）
-COPY --from=frontend-builder /app/static ./static
+# 复制前端构建产物（从 frontend-builder 的 /app/dist）
+COPY --from=frontend-builder /app/dist ./static
 
 # 切换到公共代理构建
 RUN go env -w GOPROXY=https://goproxy.cn,direct && \
