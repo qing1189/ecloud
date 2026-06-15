@@ -49,6 +49,9 @@ func (t *MonitorTask) checkPublic() {
 	body := resp.GetBody()
 	machineList := body["machineList"].([]interface{})
 
+	// 统计实际监控的机器数量
+	machineCount := 0
+
 	for _, machine := range machineList {
 		info := machine.(map[string]interface{})
 
@@ -65,6 +68,9 @@ func (t *MonitorTask) checkPublic() {
 		if !monitorAll && !contains(t.MachineIDs, computer.MachineID) {
 			continue
 		}
+
+		// 计数实际监控的机器
+		machineCount++
 
 		// 如果机器已关机，尝试开机
 		if computer.Status == ecloud.ResourceStatusShutdown {
@@ -115,6 +121,7 @@ func (t *MonitorTask) checkPublic() {
 		}
 	}
 
+	t.ActualMachineCount = machineCount
 	t.Status = "running"
 }
 
@@ -128,6 +135,7 @@ func (t *MonitorTask) checkAPI() {
 
 	page := int32(1)
 	failedCnt := 0
+	machineCount := 0 // 统计实际监控的机器数量
 
 	for {
 		if failedCnt >= 3 {
@@ -158,6 +166,9 @@ func (t *MonitorTask) checkAPI() {
 			if len(t.MachineIDs) > 0 && !contains(t.MachineIDs, machineId) {
 				continue
 			}
+
+			// 计数实际监控的机器
+			machineCount++
 
 			util.Log().Debug("[%s] 机器: %s, 状态: %s", t.AccountID, machineName, *instance.MachineStatus)
 
@@ -235,6 +246,7 @@ func (t *MonitorTask) checkAPI() {
 		page++
 	}
 
+	t.ActualMachineCount = machineCount
 	t.Status = "running"
 }
 

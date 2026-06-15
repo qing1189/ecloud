@@ -26,20 +26,21 @@ type TaskStatus struct {
 
 // MonitorTask 单个监控任务
 type MonitorTask struct {
-	AccountID     string
-	AccountName   string
-	AccountType   string
-	PublicClient  *ecloud.Client
-	APIClient     *ecloudsdkcomputer.Client
-	Cron          *cron.Cron
-	MachineIDs    []string
-	Interval      int
-	Status        string
-	LastCheck     time.Time
-	LastEvent     string
-	ctx           context.Context
-	cancel        context.CancelFunc
-	logManager    *logger.Manager
+	AccountID       string
+	AccountName     string
+	AccountType     string
+	PublicClient    *ecloud.Client
+	APIClient       *ecloudsdkcomputer.Client
+	Cron            *cron.Cron
+	MachineIDs      []string
+	Interval        int
+	Status          string
+	LastCheck       time.Time
+	LastEvent       string
+	ActualMachineCount int // 实际检测到的机器数量
+	ctx             context.Context
+	cancel          context.CancelFunc
+	logManager      *logger.Manager
 }
 
 // Manager 监控管理器
@@ -183,7 +184,7 @@ func (m *Manager) GetStatus(accountID string) (*TaskStatus, error) {
 		Status:       task.Status,
 		LastCheck:    task.LastCheck,
 		LastEvent:    task.LastEvent,
-		MachineCount: len(task.MachineIDs),
+		MachineCount: task.ActualMachineCount,
 	}, nil
 }
 
@@ -200,7 +201,7 @@ func (m *Manager) GetAllStatus() []TaskStatus {
 			Status:       task.Status,
 			LastCheck:    task.LastCheck,
 			LastEvent:    task.LastEvent,
-			MachineCount: len(task.MachineIDs),
+			MachineCount: task.ActualMachineCount,
 		})
 	}
 
