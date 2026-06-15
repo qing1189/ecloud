@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"ecloud_computer_auto_boot/pkg/api"
+	"ecloud_computer_auto_boot/pkg/api/types"
 	"ecloud_computer_auto_boot/pkg/service/auth"
 	"net/http"
 )
@@ -32,7 +32,7 @@ type LoginResponse struct {
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := api.parseJSON(r, &req); err != nil {
-		api.respondJSON(w, http.StatusBadRequest, api.Response{
+		types.RespondJSON(w, http.StatusBadRequest, types.Response{
 			Success: false,
 			Message: "请求格式错误",
 		})
@@ -41,7 +41,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	// 验证密码
 	if err := h.authManager.VerifyPassword(req.Password); err != nil {
-		api.respondJSON(w, http.StatusUnauthorized, api.Response{
+		types.RespondJSON(w, http.StatusUnauthorized, types.Response{
 			Success: false,
 			Message: "密码错误",
 		})
@@ -51,14 +51,14 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// 生成 Token
 	token, err := h.authManager.GenerateToken("admin")
 	if err != nil {
-		api.respondJSON(w, http.StatusInternalServerError, api.Response{
+		types.RespondJSON(w, http.StatusInternalServerError, types.Response{
 			Success: false,
 			Message: "生成令牌失败",
 		})
 		return
 	}
 
-	api.respondJSON(w, http.StatusOK, api.Response{
+	types.RespondJSON(w, http.StatusOK, types.Response{
 		Success: true,
 		Data: LoginResponse{
 			Token: token,
@@ -76,7 +76,7 @@ type ChangePasswordRequest struct {
 func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	var req ChangePasswordRequest
 	if err := api.parseJSON(r, &req); err != nil {
-		api.respondJSON(w, http.StatusBadRequest, api.Response{
+		types.RespondJSON(w, http.StatusBadRequest, types.Response{
 			Success: false,
 			Message: "请求格式错误",
 		})
@@ -85,7 +85,7 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	// 验证新密码长度
 	if len(req.NewPassword) < 8 {
-		api.respondJSON(w, http.StatusBadRequest, api.Response{
+		types.RespondJSON(w, http.StatusBadRequest, types.Response{
 			Success: false,
 			Message: "新密码长度至少为 8 位",
 		})
@@ -94,14 +94,14 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	// 修改密码
 	if err := h.authManager.ChangePassword(req.OldPassword, req.NewPassword); err != nil {
-		api.respondJSON(w, http.StatusUnauthorized, api.Response{
+		types.RespondJSON(w, http.StatusUnauthorized, types.Response{
 			Success: false,
 			Message: "旧密码错误",
 		})
 		return
 	}
 
-	api.respondJSON(w, http.StatusOK, api.Response{
+	types.RespondJSON(w, http.StatusOK, types.Response{
 		Success: true,
 		Message: "密码修改成功",
 	})
@@ -110,7 +110,7 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 // VerifyToken 验证 Token
 func (h *AuthHandler) VerifyToken(w http.ResponseWriter, r *http.Request) {
 	// 如果能到达这里，说明中间件已验证通过
-	api.respondJSON(w, http.StatusOK, api.Response{
+	types.RespondJSON(w, http.StatusOK, types.Response{
 		Success: true,
 		Message: "Token 有效",
 	})

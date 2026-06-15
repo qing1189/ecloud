@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"ecloud_computer_auto_boot/pkg/api"
+	"ecloud_computer_auto_boot/pkg/api/types"
 	"ecloud_computer_auto_boot/pkg/service/monitor"
 	"net/http"
 	"strings"
@@ -23,7 +23,7 @@ func NewMonitorHandler(monitorManager *monitor.Manager) *MonitorHandler {
 func (h *MonitorHandler) GetAllStatus(w http.ResponseWriter, r *http.Request) {
 	statuses := h.monitorManager.GetAllStatus()
 
-	api.respondJSON(w, http.StatusOK, api.Response{
+	types.RespondJSON(w, http.StatusOK, types.Response{
 		Success: true,
 		Data:    statuses,
 	})
@@ -35,7 +35,7 @@ func (h *MonitorHandler) GetStatus(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 	parts := strings.Split(path, "/")
 	if len(parts) < 5 {
-		api.respondJSON(w, http.StatusBadRequest, api.Response{
+		types.RespondJSON(w, http.StatusBadRequest, types.Response{
 			Success: false,
 			Message: "无效的请求路径",
 		})
@@ -45,14 +45,14 @@ func (h *MonitorHandler) GetStatus(w http.ResponseWriter, r *http.Request) {
 
 	status, err := h.monitorManager.GetStatus(id)
 	if err != nil {
-		api.respondJSON(w, http.StatusNotFound, api.Response{
+		types.RespondJSON(w, http.StatusNotFound, types.Response{
 			Success: false,
 			Message: "任务不存在",
 		})
 		return
 	}
 
-	api.respondJSON(w, http.StatusOK, api.Response{
+	types.RespondJSON(w, http.StatusOK, types.Response{
 		Success: true,
 		Data:    status,
 	})
@@ -61,7 +61,7 @@ func (h *MonitorHandler) GetStatus(w http.ResponseWriter, r *http.Request) {
 // ReloadAll 重新加载所有任务
 func (h *MonitorHandler) ReloadAll(w http.ResponseWriter, r *http.Request) {
 	if err := h.monitorManager.ReloadAll(); err != nil {
-		api.respondJSON(w, http.StatusInternalServerError, api.Response{
+		types.RespondJSON(w, http.StatusInternalServerError, types.Response{
 			Success: false,
 			Message: "重新加载任务失败",
 			Error:   err.Error(),
@@ -69,7 +69,7 @@ func (h *MonitorHandler) ReloadAll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	api.respondJSON(w, http.StatusOK, api.Response{
+	types.RespondJSON(w, http.StatusOK, types.Response{
 		Success: true,
 		Message: "任务已重新加载",
 	})

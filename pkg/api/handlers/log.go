@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"ecloud_computer_auto_boot/pkg/api"
+	"ecloud_computer_auto_boot/pkg/api/types"
 	"ecloud_computer_auto_boot/pkg/service/logger"
 	"net/http"
 	"strconv"
@@ -40,7 +40,7 @@ func (h *LogHandler) GetLogs(w http.ResponseWriter, r *http.Request) {
 	// 获取日志
 	events, total, err := h.logManager.GetLogs(page, limit, accountID, eventType)
 	if err != nil {
-		api.respondJSON(w, http.StatusInternalServerError, api.Response{
+		types.RespondJSON(w, http.StatusInternalServerError, types.Response{
 			Success: false,
 			Message: "获取日志失败",
 			Error:   err.Error(),
@@ -48,7 +48,7 @@ func (h *LogHandler) GetLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	api.respondJSON(w, http.StatusOK, api.Response{
+	types.RespondJSON(w, http.StatusOK, types.Response{
 		Success: true,
 		Data: map[string]interface{}{
 			"events": events,

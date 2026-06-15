@@ -2,6 +2,7 @@ package api
 
 import (
 	"ecloud_computer_auto_boot/pkg/api/handlers"
+	"ecloud_computer_auto_boot/pkg/api/types"
 	"ecloud_computer_auto_boot/pkg/service/account"
 	"ecloud_computer_auto_boot/pkg/service/auth"
 	"ecloud_computer_auto_boot/pkg/service/logger"
@@ -132,7 +133,7 @@ func (router *Router) handleAccounts(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPost:
 		router.accountHandler.AddAccount(w, r)
 	default:
-		respondJSON(w, http.StatusMethodNotAllowed, Response{
+		types.RespondJSON(w, http.StatusMethodNotAllowed, types.Response{
 			Success: false,
 			Message: "方法不允许",
 		})
@@ -157,7 +158,7 @@ func (router *Router) handleAccountByID(w http.ResponseWriter, r *http.Request) 
 	case http.MethodDelete:
 		router.accountHandler.DeleteAccount(w, r)
 	default:
-		respondJSON(w, http.StatusMethodNotAllowed, Response{
+		types.RespondJSON(w, http.StatusMethodNotAllowed, types.Response{
 			Success: false,
 			Message: "方法不允许",
 		})

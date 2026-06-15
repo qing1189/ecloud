@@ -1,6 +1,7 @@
 package api
 
 import (
+	"ecloud_computer_auto_boot/pkg/api/types"
 	"ecloud_computer_auto_boot/pkg/service/auth"
 	"ecloud_computer_auto_boot/pkg/util"
 	"net/http"
@@ -15,7 +16,7 @@ func AuthMiddleware(authManager *auth.Manager) func(http.Handler) http.Handler {
 			// 从 Header 获取 Token
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
-				respondJSON(w, http.StatusUnauthorized, Response{
+				types.RespondJSON(w, http.StatusUnauthorized, types.Response{
 					Success: false,
 					Message: "未提供认证令牌",
 				})
@@ -25,7 +26,7 @@ func AuthMiddleware(authManager *auth.Manager) func(http.Handler) http.Handler {
 			// 提取 Token (Bearer token)
 			parts := strings.Split(authHeader, " ")
 			if len(parts) != 2 || parts[0] != "Bearer" {
-				respondJSON(w, http.StatusUnauthorized, Response{
+				types.RespondJSON(w, http.StatusUnauthorized, types.Response{
 					Success: false,
 					Message: "无效的认证令牌格式",
 				})
@@ -37,7 +38,7 @@ func AuthMiddleware(authManager *auth.Manager) func(http.Handler) http.Handler {
 			// 验证 Token
 			claims, err := authManager.ValidateToken(token)
 			if err != nil {
-				respondJSON(w, http.StatusUnauthorized, Response{
+				types.RespondJSON(w, http.StatusUnauthorized, types.Response{
 					Success: false,
 					Message: "认证令牌无效或已过期",
 				})

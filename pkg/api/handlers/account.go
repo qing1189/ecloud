@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"ecloud_computer_auto_boot/pkg/api"
+	"ecloud_computer_auto_boot/pkg/api/types"
 	"ecloud_computer_auto_boot/pkg/ecloud"
 	"ecloud_computer_auto_boot/pkg/service/account"
 	"ecloud_computer_auto_boot/pkg/service/logger"
@@ -30,7 +30,7 @@ func NewAccountHandler(accManager *account.Manager, monitorManager *monitor.Mana
 func (h *AccountHandler) ListAccounts(w http.ResponseWriter, r *http.Request) {
 	accounts, err := h.accManager.ListAccounts()
 	if err != nil {
-		api.respondJSON(w, http.StatusInternalServerError, api.Response{
+		types.RespondJSON(w, http.StatusInternalServerError, types.Response{
 			Success: false,
 			Message: "获取账号列表失败",
 			Error:   err.Error(),
@@ -38,7 +38,7 @@ func (h *AccountHandler) ListAccounts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	api.respondJSON(w, http.StatusOK, api.Response{
+	types.RespondJSON(w, http.StatusOK, types.Response{
 		Success: true,
 		Data:    accounts,
 	})
@@ -60,7 +60,7 @@ type AddAccountRequest struct {
 func (h *AccountHandler) AddAccount(w http.ResponseWriter, r *http.Request) {
 	var req AddAccountRequest
 	if err := api.parseJSON(r, &req); err != nil {
-		api.respondJSON(w, http.StatusBadRequest, api.Response{
+		types.RespondJSON(w, http.StatusBadRequest, types.Response{
 			Success: false,
 			Message: "请求格式错误",
 		})
@@ -69,7 +69,7 @@ func (h *AccountHandler) AddAccount(w http.ResponseWriter, r *http.Request) {
 
 	// 验证必填字段
 	if req.Name == "" {
-		api.respondJSON(w, http.StatusBadRequest, api.Response{
+		types.RespondJSON(w, http.StatusBadRequest, types.Response{
 			Success: false,
 			Message: "账号名称不能为空",
 		})
@@ -77,7 +77,7 @@ func (h *AccountHandler) AddAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.Type != "public" && req.Type != "business" {
-		api.respondJSON(w, http.StatusBadRequest, api.Response{
+		types.RespondJSON(w, http.StatusBadRequest, types.Response{
 			Success: false,
 			Message: "账号类型必须为 public 或 business",
 		})
@@ -86,7 +86,7 @@ func (h *AccountHandler) AddAccount(w http.ResponseWriter, r *http.Request) {
 
 	// 公众版需要用户名密码
 	if req.Type == "public" && (req.Username == "" || req.Password == "") {
-		api.respondJSON(w, http.StatusBadRequest, api.Response{
+		types.RespondJSON(w, http.StatusBadRequest, types.Response{
 			Success: false,
 			Message: "公众版账号需要提供用户名和密码",
 		})
@@ -95,7 +95,7 @@ func (h *AccountHandler) AddAccount(w http.ResponseWriter, r *http.Request) {
 
 	// 政企版需要密钥
 	if req.Type == "business" && (req.AccessKey == "" || req.SecretKey == "") {
-		api.respondJSON(w, http.StatusBadRequest, api.Response{
+		types.RespondJSON(w, http.StatusBadRequest, types.Response{
 			Success: false,
 			Message: "政企版账号需要提供 AccessKey 和 SecretKey",
 		})
@@ -119,7 +119,7 @@ func (h *AccountHandler) AddAccount(w http.ResponseWriter, r *http.Request) {
 		// 创建客户端
 		client, err := ecloud.NewClient(req.Username, req.Password)
 		if err != nil {
-			api.respondJSON(w, http.StatusBadRequest, api.Response{
+			types.RespondJSON(w, http.StatusBadRequest, types.Response{
 				Success: false,
 				Message: "创建客户端失败",
 				Error:   err.Error(),
@@ -129,7 +129,7 @@ func (h *AccountHandler) AddAccount(w http.ResponseWriter, r *http.Request) {
 
 		// 尝试登录
 		if _, err := client.Login(); err != nil {
-			api.respondJSON(w, http.StatusBadRequest, api.Response{
+			types.RespondJSON(w, http.StatusBadRequest, types.Response{
 				Success: false,
 				Message: "登录失败，请检查用户名和密码",
 				Error:   err.Error(),
@@ -142,7 +142,7 @@ func (h *AccountHandler) AddAccount(w http.ResponseWriter, r *http.Request) {
 			// 发送验证码
 			resp, err := client.SendTrustDeviceVerifySms()
 			if err != nil {
-				api.respondJSON(w, http.StatusInternalServerError, api.Response{
+				types.RespondJSON(w, http.StatusInternalServerError, types.Response{
 					Success: false,
 					Message: "发送验证码失败",
 					Error:   err.Error(),
@@ -154,7 +154,7 @@ func (h *AccountHandler) AddAccount(w http.ResponseWriter, r *http.Request) {
 			tempID := account.SaveTempAccount(client, &acc)
 
 			// 返回需要验证的响应（特殊状态码 10001）
-			api.respondJSON(w, http.StatusOK, api.Response{
+			types.RespondJSON(w, http.StatusOK, types.Response{
 				Success: false,
 				Message: "需要设备验证",
 				Data: map[string]interface{}{
@@ -170,7 +170,7 @@ func (h *AccountHandler) AddAccount(w http.ResponseWriter, r *http.Request) {
 
 	// 不需要验证或政企版，直接保存
 	if err := h.accManager.AddAccount(acc); err != nil {
-		api.respondJSON(w, http.StatusInternalServerError, api.Response{
+		types.RespondJSON(w, http.StatusInternalServerError, types.Response{
 			Success: false,
 			Message: "添加账号失败",
 			Error:   err.Error(),
@@ -191,7 +191,7 @@ func (h *AccountHandler) AddAccount(w http.ResponseWriter, r *http.Request) {
 		_ = h.monitorManager.StartTask(acc)
 	}
 
-	api.respondJSON(w, http.StatusOK, api.Response{
+	types.RespondJSON(w, http.StatusOK, types.Response{
 		Success: true,
 		Message: "账号添加成功",
 		Data:    acc.ToSafeAccount(),
@@ -206,14 +206,14 @@ func (h *AccountHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
 
 	acc, err := h.accManager.GetAccount(id)
 	if err != nil {
-		api.respondJSON(w, http.StatusNotFound, api.Response{
+		types.RespondJSON(w, http.StatusNotFound, types.Response{
 			Success: false,
 			Message: "账号不存在",
 		})
 		return
 	}
 
-	api.respondJSON(w, http.StatusOK, api.Response{
+	types.RespondJSON(w, http.StatusOK, types.Response{
 		Success: true,
 		Data:    acc.ToSafeAccount(),
 	})
@@ -233,7 +233,7 @@ func (h *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 	parts := strings.Split(path, "/")
 	if len(parts) < 4 {
-		api.respondJSON(w, http.StatusBadRequest, api.Response{
+		types.RespondJSON(w, http.StatusBadRequest, types.Response{
 			Success: false,
 			Message: "无效的请求路径",
 		})
@@ -243,7 +243,7 @@ func (h *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 
 	var req UpdateAccountRequest
 	if err := api.parseJSON(r, &req); err != nil {
-		api.respondJSON(w, http.StatusBadRequest, api.Response{
+		types.RespondJSON(w, http.StatusBadRequest, types.Response{
 			Success: false,
 			Message: "请求格式错误",
 		})
@@ -268,7 +268,7 @@ func (h *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
-		api.respondJSON(w, http.StatusInternalServerError, api.Response{
+		types.RespondJSON(w, http.StatusInternalServerError, types.Response{
 			Success: false,
 			Message: "更新账号失败",
 			Error:   err.Error(),
@@ -287,7 +287,7 @@ func (h *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	// 重新加载监控任务
 	_ = h.monitorManager.ReloadTask(id)
 
-	api.respondJSON(w, http.StatusOK, api.Response{
+	types.RespondJSON(w, http.StatusOK, types.Response{
 		Success: true,
 		Message: "账号更新成功",
 	})
@@ -299,7 +299,7 @@ func (h *AccountHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 	parts := strings.Split(path, "/")
 	if len(parts) < 4 {
-		api.respondJSON(w, http.StatusBadRequest, api.Response{
+		types.RespondJSON(w, http.StatusBadRequest, types.Response{
 			Success: false,
 			Message: "无效的请求路径",
 		})
@@ -312,7 +312,7 @@ func (h *AccountHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 
 	// 删除账号
 	if err := h.accManager.DeleteAccount(id); err != nil {
-		api.respondJSON(w, http.StatusInternalServerError, api.Response{
+		types.RespondJSON(w, http.StatusInternalServerError, types.Response{
 			Success: false,
 			Message: "删除账号失败",
 			Error:   err.Error(),
@@ -328,7 +328,7 @@ func (h *AccountHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 		Status:    "success",
 	})
 
-	api.respondJSON(w, http.StatusOK, api.Response{
+	types.RespondJSON(w, http.StatusOK, types.Response{
 		Success: true,
 		Message: "账号删除成功",
 	})
@@ -340,7 +340,7 @@ func (h *AccountHandler) ToggleMonitor(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 	parts := strings.Split(path, "/")
 	if len(parts) < 4 {
-		api.respondJSON(w, http.StatusBadRequest, api.Response{
+		types.RespondJSON(w, http.StatusBadRequest, types.Response{
 			Success: false,
 			Message: "无效的请求路径",
 		})
@@ -350,7 +350,7 @@ func (h *AccountHandler) ToggleMonitor(w http.ResponseWriter, r *http.Request) {
 
 	acc, err := h.accManager.GetAccount(id)
 	if err != nil {
-		api.respondJSON(w, http.StatusNotFound, api.Response{
+		types.RespondJSON(w, http.StatusNotFound, types.Response{
 			Success: false,
 			Message: "账号不存在",
 		})
@@ -366,7 +366,7 @@ func (h *AccountHandler) ToggleMonitor(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
-		api.respondJSON(w, http.StatusInternalServerError, api.Response{
+		types.RespondJSON(w, http.StatusInternalServerError, types.Response{
 			Success: false,
 			Message: "切换监控状态失败",
 			Error:   err.Error(),
@@ -382,7 +382,7 @@ func (h *AccountHandler) ToggleMonitor(w http.ResponseWriter, r *http.Request) {
 		_ = h.monitorManager.StopTask(id)
 	}
 
-	api.respondJSON(w, http.StatusOK, api.Response{
+	types.RespondJSON(w, http.StatusOK, types.Response{
 		Success: true,
 		Message: "监控状态已更新",
 		Data: map[string]bool{
@@ -401,7 +401,7 @@ type VerifyDeviceRequest struct {
 func (h *AccountHandler) VerifyDevice(w http.ResponseWriter, r *http.Request) {
 	var req VerifyDeviceRequest
 	if err := api.parseJSON(r, &req); err != nil {
-		api.respondJSON(w, http.StatusBadRequest, api.Response{
+		types.RespondJSON(w, http.StatusBadRequest, types.Response{
 			Success: false,
 			Message: "请求格式错误",
 		})
@@ -409,7 +409,7 @@ func (h *AccountHandler) VerifyDevice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.TempID == "" || req.Code == "" {
-		api.respondJSON(w, http.StatusBadRequest, api.Response{
+		types.RespondJSON(w, http.StatusBadRequest, types.Response{
 			Success: false,
 			Message: "临时ID和验证码不能为空",
 		})
@@ -419,7 +419,7 @@ func (h *AccountHandler) VerifyDevice(w http.ResponseWriter, r *http.Request) {
 	// 获取临时账号
 	temp, err := account.GetTempAccount(req.TempID)
 	if err != nil {
-		api.respondJSON(w, http.StatusBadRequest, api.Response{
+		types.RespondJSON(w, http.StatusBadRequest, types.Response{
 			Success: false,
 			Message: err.Error(),
 		})
@@ -429,7 +429,7 @@ func (h *AccountHandler) VerifyDevice(w http.ResponseWriter, r *http.Request) {
 	// 提交验证码
 	resp, err := temp.Client.TrustDevice(req.Code)
 	if err != nil {
-		api.respondJSON(w, http.StatusInternalServerError, api.Response{
+		types.RespondJSON(w, http.StatusInternalServerError, types.Response{
 			Success: false,
 			Message: "验证失败",
 			Error:   err.Error(),
@@ -438,7 +438,7 @@ func (h *AccountHandler) VerifyDevice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !resp.Success() {
-		api.respondJSON(w, http.StatusBadRequest, api.Response{
+		types.RespondJSON(w, http.StatusBadRequest, types.Response{
 			Success: false,
 			Message: "验证码错误或已过期",
 			Error:   resp.ErrorMessage,
@@ -448,7 +448,7 @@ func (h *AccountHandler) VerifyDevice(w http.ResponseWriter, r *http.Request) {
 
 	// 验证成功，保存账号
 	if err := h.accManager.AddAccount(*temp.Account); err != nil {
-		api.respondJSON(w, http.StatusInternalServerError, api.Response{
+		types.RespondJSON(w, http.StatusInternalServerError, types.Response{
 			Success: false,
 			Message: "保存账号失败",
 			Error:   err.Error(),
@@ -472,7 +472,7 @@ func (h *AccountHandler) VerifyDevice(w http.ResponseWriter, r *http.Request) {
 		_ = h.monitorManager.StartTask(*temp.Account)
 	}
 
-	api.respondJSON(w, http.StatusOK, api.Response{
+	types.RespondJSON(w, http.StatusOK, types.Response{
 		Success: true,
 		Message: "验证成功，账号添加完成",
 		Data:    temp.Account.ToSafeAccount(),
@@ -488,7 +488,7 @@ type ResendCodeRequest struct {
 func (h *AccountHandler) ResendCode(w http.ResponseWriter, r *http.Request) {
 	var req ResendCodeRequest
 	if err := api.parseJSON(r, &req); err != nil {
-		api.respondJSON(w, http.StatusBadRequest, api.Response{
+		types.RespondJSON(w, http.StatusBadRequest, types.Response{
 			Success: false,
 			Message: "请求格式错误",
 		})
@@ -496,7 +496,7 @@ func (h *AccountHandler) ResendCode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.TempID == "" {
-		api.respondJSON(w, http.StatusBadRequest, api.Response{
+		types.RespondJSON(w, http.StatusBadRequest, types.Response{
 			Success: false,
 			Message: "临时ID不能为空",
 		})
@@ -506,7 +506,7 @@ func (h *AccountHandler) ResendCode(w http.ResponseWriter, r *http.Request) {
 	// 获取临时账号
 	temp, err := account.GetTempAccount(req.TempID)
 	if err != nil {
-		api.respondJSON(w, http.StatusBadRequest, api.Response{
+		types.RespondJSON(w, http.StatusBadRequest, types.Response{
 			Success: false,
 			Message: err.Error(),
 		})
@@ -516,7 +516,7 @@ func (h *AccountHandler) ResendCode(w http.ResponseWriter, r *http.Request) {
 	// 重新发送验证码
 	resp, err := temp.Client.SendTrustDeviceVerifySms()
 	if err != nil {
-		api.respondJSON(w, http.StatusInternalServerError, api.Response{
+		types.RespondJSON(w, http.StatusInternalServerError, types.Response{
 			Success: false,
 			Message: "发送验证码失败",
 			Error:   err.Error(),
@@ -524,7 +524,7 @@ func (h *AccountHandler) ResendCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	api.respondJSON(w, http.StatusOK, api.Response{
+	types.RespondJSON(w, http.StatusOK, types.Response{
 		Success: true,
 		Message: "验证码已重新发送",
 		Data: map[string]interface{}{
