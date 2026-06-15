@@ -31,10 +31,10 @@ COPY --from=frontend-builder /app/static ./static
 # 设置环境变量
 ENV GO111MODULE=on
 
-# 使用 ecloud 代理下载 SDK
+# 使用 ecloud 代理下载 SDK（允许部分失败）
 RUN go env -w GOPROXY=https://ecloud.10086.cn/api/query/developer/nexus/repository/go-sdk/ && \
     go env -w GONOSUMDB=gitlab.ecloud.com && \
-    go get -u gitlab.ecloud.com/ecloud/ecloudsdkcomputer
+    (go get -u gitlab.ecloud.com/ecloud/ecloudsdkcomputer || true)
 
 # 切换到公共代理并构建
 COPY --from=frontend-builder /app/static ./static
