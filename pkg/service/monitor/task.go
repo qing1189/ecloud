@@ -5,13 +5,15 @@ import (
 	"ecloud_computer_auto_boot/pkg/service/logger"
 	"ecloud_computer_auto_boot/pkg/util"
 	"fmt"
+	"time"
 
 	"gitlab.ecloud.com/ecloud/ecloudsdkcomputer/model"
 )
 
 // check 执行监控检查
 func (t *MonitorTask) check() {
-	t.LastCheck = util.Log().Info("[监控检查] 账号 %s 开始检查", t.AccountName)
+	t.LastCheck = time.Now()
+	util.Log().Info("[监控检查] 账号 %s 开始检查", t.AccountName)
 
 	if t.AccountType == "public" {
 		t.checkPublic()
