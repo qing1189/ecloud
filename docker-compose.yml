@@ -1,5 +1,10 @@
 version: '3.8'
 
+# 环境变量配置说明：
+# 1. docker-compose 会自动加载同目录的 .env 文件（如果存在）
+# 2. 首次部署时，deploy.sh 会自动从 .env.example 复制
+# 3. 也可以手动创建 .env 文件或通过 docker-compose --env-file 指定
+
 services:
   ecloud-web:
     build:
