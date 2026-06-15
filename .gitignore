@@ -442,3 +442,12 @@ fabric.properties
 .idea/
 
 build/
+
+# Web 前端
+web/node_modules/
+web/dist/
+static/
+
+# 存储数据
+store/*.json
+config.yml

@@ -1,0 +1,52 @@
+# Git
+.git
+.gitignore
+
+# 数据文件
+store/
+data/
+backups/
+
+# 日志文件
+*.log
+
+# 临时文件
+*.tmp
+*.temp
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 构建产物（会在构建过程中生成）
+ecloud
+static/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# 文档（不需要打包到镜像）
+*.md
+!README.md
+
+# Docker 相关
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# 测试文件
+*_test.go
+
+# 其他
+.DS_Store
+Thumbs.db
