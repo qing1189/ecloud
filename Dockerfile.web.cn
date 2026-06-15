@@ -27,8 +27,9 @@ WORKDIR /app
 # 复制 Go 依赖文件
 COPY go.mod go.sum ./
 
-# 使用国内 Go 代理加速
-RUN go env -w GOPROXY=https://goproxy.cn,direct && \
+# 使用国内 Go 代理 + 移动云 SDK 代理
+RUN go env -w GOPROXY=https://ecloud.10086.cn/api/query/developer/nexus/repository/go-sdk/,https://goproxy.cn,direct && \
+    go env -w GONOSUMDB=gitlab.ecloud.com && \
     go mod download
 
 # 复制后端源代码
