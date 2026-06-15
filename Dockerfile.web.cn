@@ -1,34 +1,35 @@
-# 多阶段构建 Dockerfile
-# 阶段 1：构建前端
+# eCloud Web 服务 - Docker 多阶段构建
+# 适用环境：中国大陆服务器（使用国内镜像加速）
+
+# 阶段 1：前端构建
 FROM node:20-alpine AS frontend-builder
 
 WORKDIR /app
 
-# 复制前端依赖文件
-COPY web/package*.json ./web/
+# 复制前端项目文件
+COPY web/package*.json ./
 
-# 安装依赖
-RUN cd web && npm install
+# 使用国内 npm 镜像加速
+RUN npm config set registry https://registry.npmmirror.com && \
+    npm install
 
 # 复制前端源代码
-COPY web/ ./web/
+COPY web/ .
 
-# 构建前端（输出到 /app/static）
-RUN cd web && npm run build
+# 构建前端（输出到 ../static，即 /app/static）
+RUN npm run build
 
-# 阶段 2：构建后端
+# 阶段 2：后端构建
 FROM golang:1.23-alpine AS backend-builder
-
-# 安装必要的工具
-RUN apk add --no-cache git
 
 WORKDIR /app
 
 # 复制 Go 依赖文件
 COPY go.mod go.sum ./
 
-# 下载依赖（海外环境使用默认代理）
-RUN go mod download
+# 使用国内 Go 代理加速
+RUN go env -w GOPROXY=https://goproxy.cn,direct && \
+    go mod download
 
 # 复制后端源代码
 COPY . .
@@ -42,8 +43,9 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o ecloud .
 # 阶段 3：最终运行镜像
 FROM alpine:latest
 
-# 安装必要的工具：时区数据、CA 证书、wget（用于健康检查）
-RUN apk --no-cache add ca-certificates tzdata wget
+# 使用国内 Alpine 镜像源加速
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
+    apk --no-cache add ca-certificates tzdata wget
 
 # 设置时区
 ENV TZ=Asia/Shanghai
