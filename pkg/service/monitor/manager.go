@@ -325,9 +325,3 @@ func (t *MonitorTask) Stop() {
 		t.cancel()
 	}
 }
-
-// check 执行检查（将在后续实现具体逻辑）
-func (t *MonitorTask) check() {
-	t.LastCheck = time.Now()
-	// TODO: 实现具体的检查逻辑（下一步补充）
-}
