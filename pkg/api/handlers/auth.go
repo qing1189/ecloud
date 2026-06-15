@@ -31,7 +31,7 @@ type LoginResponse struct {
 // Login 登录
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
-	if err := api.parseJSON(r, &req); err != nil {
+	if err := types.ParseJSON(r, &req); err != nil {
 		types.RespondJSON(w, http.StatusBadRequest, types.Response{
 			Success: false,
 			Message: "请求格式错误",
@@ -75,7 +75,7 @@ type ChangePasswordRequest struct {
 // ChangePassword 修改密码
 func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	var req ChangePasswordRequest
-	if err := api.parseJSON(r, &req); err != nil {
+	if err := types.ParseJSON(r, &req); err != nil {
 		types.RespondJSON(w, http.StatusBadRequest, types.Response{
 			Success: false,
 			Message: "请求格式错误",

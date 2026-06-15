@@ -59,7 +59,7 @@ type AddAccountRequest struct {
 // AddAccount 添加账号（支持设备信任验证）
 func (h *AccountHandler) AddAccount(w http.ResponseWriter, r *http.Request) {
 	var req AddAccountRequest
-	if err := api.parseJSON(r, &req); err != nil {
+	if err := types.ParseJSON(r, &req); err != nil {
 		types.RespondJSON(w, http.StatusBadRequest, types.Response{
 			Success: false,
 			Message: "请求格式错误",
@@ -242,7 +242,7 @@ func (h *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	id := parts[3]
 
 	var req UpdateAccountRequest
-	if err := api.parseJSON(r, &req); err != nil {
+	if err := types.ParseJSON(r, &req); err != nil {
 		types.RespondJSON(w, http.StatusBadRequest, types.Response{
 			Success: false,
 			Message: "请求格式错误",
@@ -400,7 +400,7 @@ type VerifyDeviceRequest struct {
 // VerifyDevice 提交验证码，完成设备信任
 func (h *AccountHandler) VerifyDevice(w http.ResponseWriter, r *http.Request) {
 	var req VerifyDeviceRequest
-	if err := api.parseJSON(r, &req); err != nil {
+	if err := types.ParseJSON(r, &req); err != nil {
 		types.RespondJSON(w, http.StatusBadRequest, types.Response{
 			Success: false,
 			Message: "请求格式错误",
@@ -487,7 +487,7 @@ type ResendCodeRequest struct {
 // ResendCode 重新发送验证码
 func (h *AccountHandler) ResendCode(w http.ResponseWriter, r *http.Request) {
 	var req ResendCodeRequest
-	if err := api.parseJSON(r, &req); err != nil {
+	if err := types.ParseJSON(r, &req); err != nil {
 		types.RespondJSON(w, http.StatusBadRequest, types.Response{
 			Success: false,
 			Message: "请求格式错误",
