@@ -27,10 +27,14 @@ WORKDIR /app
 # 复制 Go 依赖文件
 COPY go.mod go.sum ./
 
-# 下载依赖（尝试从 goproxy.cn 缓存下载，如果没有缓存则从源站下载）
-RUN go env -w GOPROXY=https://goproxy.cn,https://ecloud.10086.cn/api/query/developer/nexus/repository/go-sdk/,direct && \
+# 下载依赖（先用 ecloud 代理获取 SDK，再用公共代理下载其他依赖）
+RUN go env -w GOPROXY=https://ecloud.10086.cn/api/query/developer/nexus/repository/go-sdk/ && \
     go env -w GONOSUMDB=gitlab.ecloud.com && \
-    go env -w GOPRIVATE=gitlab.ecloud.com && \
+    go get -u gitlab.ecloud.com/ecloud/ecloudsdkcomputer && \
+    go get -u gitlab.ecloud.com/ecloud/ecloudsdkcore
+
+# 切换到公共代理下载其他依赖
+RUN go env -w GOPROXY=https://goproxy.cn,direct && \
     go mod download
 
 # 复制后端源代码
