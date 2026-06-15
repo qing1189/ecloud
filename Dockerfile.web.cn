@@ -27,15 +27,10 @@ WORKDIR /app
 # 复制 Go 依赖文件
 COPY go.mod go.sum ./
 
-# 下载依赖（先用 ecloud 代理获取 SDK，再用公共代理下载其他依赖）
+# 使用 ecloud 代理获取 SDK（只下载主包，依赖会自动下载）
 RUN go env -w GOPROXY=https://ecloud.10086.cn/api/query/developer/nexus/repository/go-sdk/ && \
     go env -w GONOSUMDB=gitlab.ecloud.com && \
-    go get -u gitlab.ecloud.com/ecloud/ecloudsdkcomputer && \
-    go get -u gitlab.ecloud.com/ecloud/ecloudsdkcore
-
-# 切换到公共代理下载其他依赖
-RUN go env -w GOPROXY=https://goproxy.cn,direct && \
-    go mod download
+    go get -u gitlab.ecloud.com/ecloud/ecloudsdkcomputer
 
 # 复制后端源代码
 COPY . .
@@ -43,8 +38,9 @@ COPY . .
 # 复制前端构建产物（从 frontend-builder 的 /app/static）
 COPY --from=frontend-builder /app/static ./static
 
-# 构建后端
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o ecloud .
+# 切换到公共代理构建
+RUN go env -w GOPROXY=https://goproxy.cn,direct && \
+    CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o ecloud .
 
 # 阶段 3：最终运行镜像
 FROM alpine:latest
