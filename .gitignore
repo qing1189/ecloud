@@ -451,3 +451,10 @@ static/
 # 存储数据
 store/*.json
 config.yml
+# 编译产物
+ecloud-server
+ecloud-test
+
+# 备份文件
+*.old.*
+README.old.md
