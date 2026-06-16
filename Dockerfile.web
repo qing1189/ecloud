@@ -19,8 +19,8 @@ RUN cd web && npm run build
 # 阶段 2：构建后端
 FROM golang:1.23-alpine AS backend-builder
 
-# 安装必要的工具
-RUN apk add --no-cache git
+# 安装必要的工具和 CGO 依赖（SQLite 需要）
+RUN apk add --no-cache git gcc musl-dev
 
 WORKDIR /app
 
@@ -39,9 +39,9 @@ RUN go env -w GOPROXY=https://ecloud.10086.cn/api/query/developer/nexus/reposito
 # 切换到公共代理并构建
 COPY --from=frontend-builder /app/static ./static
 
-# 切换到公共代理构建
+# 切换到公共代理构建（启用 CGO 支持 SQLite）
 RUN go env -w GOPROXY=https://goproxy.cn,direct && \
-    CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o ecloud .
+    CGO_ENABLED=1 GOOS=linux go build -a -ldflags '-linkmode external -extldflags "-static"' -o ecloud .
 
 # 阶段 3：最终运行镜像
 FROM alpine:latest
