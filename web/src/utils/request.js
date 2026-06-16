@@ -32,6 +32,11 @@ request.interceptors.response.use(
     if (res.success) {
       return res
     } else {
+      // 特殊情况：设备验证（需要返回数据，不要 reject）
+      if (res.data && res.data.needVerify) {
+        return res
+      }
+
       // 业务错误
       ElMessage.error(res.message || res.error || '请求失败')
       return Promise.reject(new Error(res.message || res.error || '请求失败'))
