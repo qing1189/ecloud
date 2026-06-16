@@ -7,6 +7,7 @@ import (
 	"ecloud_computer_auto_boot/pkg/service/auth"
 	"ecloud_computer_auto_boot/pkg/service/logger"
 	"ecloud_computer_auto_boot/pkg/service/monitor"
+	"ecloud_computer_auto_boot/pkg/service/user"
 	"ecloud_computer_auto_boot/pkg/store"
 	"ecloud_computer_auto_boot/pkg/util"
 	"fmt"
@@ -33,22 +34,32 @@ var serverCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// 初始化用户管理器
+		userManager := user.NewManager()
+
 		// 初始化认证管理器
-		authManager := auth.NewManager()
-		password, err := authManager.Init()
+		authManager := auth.NewManager(userManager)
+		needCreateAdmin, err := authManager.Init()
 		if err != nil {
 			util.Log().Error("认证初始化失败: %s", err)
 			os.Exit(1)
 		}
 
-		// 如果是首次启动，显示生成的密码
-		if password != "" {
+		// 如果需要创建默认管理员
+		if needCreateAdmin {
+			username, password, err := authManager.CreateDefaultAdmin()
+			if err != nil {
+				util.Log().Error("创建默认管理员失败: %s", err)
+				os.Exit(1)
+			}
+
 			util.Log().Info("=================================================")
-			util.Log().Info("首次启动检测到，管理员密码已生成:")
+			util.Log().Info("首次启动检测到，已创建默认管理员账号:")
 			util.Log().Info("")
+			util.Log().Info("    用户名: %s", username)
 			util.Log().Info("    密码: %s", password)
 			util.Log().Info("")
-			util.Log().Info("请妥善保存密码，可通过 API 修改")
+			util.Log().Info("请妥善保存登录信息，登录后可修改密码")
 			util.Log().Info("=================================================")
 		}
 
@@ -79,7 +90,7 @@ var serverCmd = &cobra.Command{
 		}
 
 		// 创建路由
-		router := api.NewRouter(authManager, accManager, monitorManager, logManager)
+		router := api.NewRouter(authManager, userManager, accManager, monitorManager, logManager)
 		mux := http.NewServeMux()
 		router.Setup(mux)
 

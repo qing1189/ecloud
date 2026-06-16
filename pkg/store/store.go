@@ -1,86 +1,125 @@
 package store
 
 import (
+	"database/sql"
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"sync"
+
+	"ecloud_computer_auto_boot/pkg/util"
+	_ "modernc.org/sqlite"
 )
+
+var db *sql.DB
 
 const (
-	StoreDir       = "store"
-	AccountsFile   = "accounts.json"
-	AuthFile       = "auth.json"
-	LogsFile       = "logs.json"
+	DataDir    = "data"
+	DBFileName = "ecloud.db"
 )
 
-var (
-	storePath string
-	mu        sync.RWMutex
-)
-
-// Init 初始化存储目录
+// Init 初始化 SQLite 数据库（自动建表和迁移）
 func Init(basePath string) error {
 	if basePath == "" {
 		basePath = "."
 	}
-	storePath = filepath.Join(basePath, StoreDir)
-
-	// 创建存储目录
-	if err := os.MkdirAll(storePath, 0755); err != nil {
+	dataDir := filepath.Join(basePath, DataDir)
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
 		return err
 	}
 
+	dbPath := filepath.Join(dataDir, DBFileName)
+	conn, err := sql.Open("sqlite", dbPath+"?_journal_mode=WAL&_busy_timeout=5000")
+	if err != nil {
+		return err
+	}
+	db = conn
+
+	// 设置连接池（SQLite 不适合多写并发，控制住）
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+
+	if err := migrate(); err != nil {
+		return err
+	}
+
+	util.Log().Info("[存储] SQLite 数据库已初始化: %s", dbPath)
 	return nil
 }
 
-// GetStorePath 获取存储路径
-func GetStorePath() string {
-	return storePath
+// DB 返回数据库连接
+func DB() *sql.DB {
+	return db
 }
 
-// ReadJSON 读取 JSON 文件（线程安全）
-func ReadJSON(filename string, v interface{}) error {
-	mu.RLock()
-	defer mu.RUnlock()
+// migrate 自动建表
+func migrate() error {
+	schema := `
+	CREATE TABLE IF NOT EXISTS users (
+		id            TEXT PRIMARY KEY,
+		username      TEXT NOT NULL UNIQUE,
+		password_hash TEXT NOT NULL,
+		role          TEXT NOT NULL DEFAULT 'user',
+		display_name  TEXT DEFAULT '',
+		email         TEXT DEFAULT '',
+		created_at    TEXT DEFAULT (datetime('now','localtime')),
+		updated_at    TEXT DEFAULT (datetime('now','localtime')),
+		last_login_at TEXT DEFAULT ''
+	);
 
-	path := filepath.Join(storePath, filename)
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username COLLATE NOCASE);
 
-	// 文件不存在返回空
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return nil
-	}
+	CREATE TABLE IF NOT EXISTS accounts (
+		id            TEXT PRIMARY KEY,
+		name          TEXT NOT NULL,
+		type          TEXT NOT NULL DEFAULT 'public',
+		username      TEXT DEFAULT '',
+		password      TEXT DEFAULT '',
+		access_key    TEXT DEFAULT '',
+		secret_key    TEXT DEFAULT '',
+		pool_id       TEXT DEFAULT '',
+		monitor_enabled  INTEGER DEFAULT 0,
+		monitor_interval INTEGER DEFAULT 60,
+		monitor_machines TEXT DEFAULT '[]',
+		user_id       TEXT DEFAULT '',
+		created_at    TEXT DEFAULT (datetime('now','localtime')),
+		updated_at    TEXT DEFAULT (datetime('now','localtime'))
+	);
 
-	data, err := os.ReadFile(path)
+	CREATE INDEX IF NOT EXISTS idx_accounts_user_id ON accounts(user_id);
+
+	CREATE TABLE IF NOT EXISTS auth (
+		id            INTEGER PRIMARY KEY CHECK (id = 1),
+		password_hash TEXT NOT NULL DEFAULT '',
+		secret_key    TEXT NOT NULL DEFAULT '',
+		created_at    TEXT DEFAULT (datetime('now','localtime'))
+	);
+
+	CREATE TABLE IF NOT EXISTS logs (
+		id            TEXT PRIMARY KEY,
+		timestamp     TEXT DEFAULT (datetime('now','localtime')),
+		type          TEXT NOT NULL,
+		account_id    TEXT DEFAULT '',
+		user_id       TEXT DEFAULT '',
+		message       TEXT NOT NULL DEFAULT '',
+		details       TEXT DEFAULT '',
+		status        TEXT NOT NULL DEFAULT 'info'
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON logs(timestamp DESC);
+	CREATE INDEX IF NOT EXISTS idx_logs_type     ON logs(type);
+	CREATE INDEX IF NOT EXISTS idx_logs_account  ON logs(account_id);
+	CREATE INDEX IF NOT EXISTS idx_logs_user_id  ON logs(user_id);
+	`
+
+	_, err := db.Exec(schema)
+	return err
+}
+
+// JSONString 将对象转为 JSON 字符串
+func JSONString(v interface{}) string {
+	data, err := json.Marshal(v)
 	if err != nil {
-		return err
+		return "{}"
 	}
-
-	if len(data) == 0 {
-		return nil
-	}
-
-	return json.Unmarshal(data, v)
-}
-
-// WriteJSON 写入 JSON 文件（线程安全）
-func WriteJSON(filename string, v interface{}) error {
-	mu.Lock()
-	defer mu.Unlock()
-
-	path := filepath.Join(storePath, filename)
-
-	data, err := json.MarshalIndent(v, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(path, data, 0644)
-}
-
-// FileExists 检查文件是否存在
-func FileExists(filename string) bool {
-	path := filepath.Join(storePath, filename)
-	_, err := os.Stat(path)
-	return !os.IsNotExist(err)
+	return string(data)
 }

@@ -19,7 +19,7 @@ func NewLogHandler(logManager *logger.Manager) *LogHandler {
 	}
 }
 
-// GetLogs 获取日志列表
+// GetLogs 获取日志列表（管理员看所有，普通用户仅看自己的）
 func (h *LogHandler) GetLogs(w http.ResponseWriter, r *http.Request) {
 	// 解析查询参数
 	query := r.URL.Query()
@@ -38,7 +38,19 @@ func (h *LogHandler) GetLogs(w http.ResponseWriter, r *http.Request) {
 	eventType := logger.EventType(query.Get("type"))
 
 	// 获取日志
-	events, total, err := h.logManager.GetLogs(page, limit, accountID, eventType)
+	var events []logger.Event
+	var total int
+	var err error
+
+	if types.IsAdmin(r) {
+		// 管理员：查看所有日志
+		events, total, err = h.logManager.GetLogs(page, limit, accountID, eventType)
+	} else {
+		// 普通用户：仅查看自己的日志
+		userID := types.GetUserIDFromContext(r)
+		events, total, err = h.logManager.GetLogsByUser(page, limit, userID, accountID, eventType)
+	}
+
 	if err != nil {
 		types.RespondJSON(w, http.StatusInternalServerError, types.Response{
 			Success: false,

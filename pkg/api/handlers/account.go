@@ -26,9 +26,42 @@ func NewAccountHandler(accManager *account.Manager, monitorManager *monitor.Mana
 	}
 }
 
-// ListAccounts 列出所有账号
+// checkAccountOwnership 检查账号所有权（管理员或本人）
+func (h *AccountHandler) checkAccountOwnership(r *http.Request, accountID string) (bool, *account.Account, error) {
+	// 管理员有权限操作所有账号
+	if types.IsAdmin(r) {
+		acc, err := h.accManager.GetAccount(accountID)
+		return true, acc, err
+	}
+
+	// 普通用户仅能操作自己的账号
+	acc, err := h.accManager.GetAccount(accountID)
+	if err != nil {
+		return false, nil, err
+	}
+
+	userID := types.GetUserIDFromContext(r)
+	if acc.UserID != userID {
+		return false, acc, nil
+	}
+
+	return true, acc, nil
+}
+
+// ListAccounts 列出账号（管理员看所有，普通用户仅看自己的）
 func (h *AccountHandler) ListAccounts(w http.ResponseWriter, r *http.Request) {
-	accounts, err := h.accManager.ListAccounts()
+	var accounts []account.SafeAccount
+	var err error
+
+	if types.IsAdmin(r) {
+		// 管理员：列出所有账号
+		accounts, err = h.accManager.ListAccounts()
+	} else {
+		// 普通用户：仅列出自己的账号
+		userID := types.GetUserIDFromContext(r)
+		accounts, err = h.accManager.ListAccountsByUser(userID)
+	}
+
 	if err != nil {
 		types.RespondJSON(w, http.StatusInternalServerError, types.Response{
 			Success: false,
@@ -111,6 +144,7 @@ func (h *AccountHandler) AddAccount(w http.ResponseWriter, r *http.Request) {
 		AccessKey:     req.AccessKey,
 		SecretKey:     req.SecretKey,
 		PoolID:        req.PoolID,
+		UserID:        types.GetUserIDFromContext(r), // 关联当前用户
 		MonitorConfig: req.Config,
 	}
 
@@ -182,6 +216,7 @@ func (h *AccountHandler) AddAccount(w http.ResponseWriter, r *http.Request) {
 	h.logManager.Log(logger.Event{
 		Type:      logger.EventAccountAdd,
 		AccountID: acc.ID,
+		UserID:    types.GetUserIDFromContext(r),
 		Message:   "添加账号: " + acc.Name,
 		Status:    "success",
 	})
@@ -204,11 +239,20 @@ func (h *AccountHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 	id := strings.TrimPrefix(path, "/api/accounts/")
 
-	acc, err := h.accManager.GetAccount(id)
+	// 检查所有权
+	hasPermission, acc, err := h.checkAccountOwnership(r, id)
 	if err != nil {
 		types.RespondJSON(w, http.StatusNotFound, types.Response{
 			Success: false,
 			Message: "账号不存在",
+		})
+		return
+	}
+
+	if !hasPermission {
+		types.RespondJSON(w, http.StatusForbidden, types.Response{
+			Success: false,
+			Message: "权限不足",
 		})
 		return
 	}
@@ -241,6 +285,24 @@ func (h *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 	id := parts[3]
 
+	// 检查所有权
+	hasPermission, _, err := h.checkAccountOwnership(r, id)
+	if err != nil {
+		types.RespondJSON(w, http.StatusNotFound, types.Response{
+			Success: false,
+			Message: "账号不存在",
+		})
+		return
+	}
+
+	if !hasPermission {
+		types.RespondJSON(w, http.StatusForbidden, types.Response{
+			Success: false,
+			Message: "权限不足",
+		})
+		return
+	}
+
 	var req UpdateAccountRequest
 	if err := types.ParseJSON(r, &req); err != nil {
 		types.RespondJSON(w, http.StatusBadRequest, types.Response{
@@ -251,7 +313,7 @@ func (h *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 更新账号
-	err := h.accManager.UpdateAccount(id, func(acc *account.Account) error {
+	err = h.accManager.UpdateAccount(id, func(acc *account.Account) error {
 		if req.Name != nil {
 			acc.Name = *req.Name
 		}
@@ -280,6 +342,7 @@ func (h *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	h.logManager.Log(logger.Event{
 		Type:      logger.EventAccountUpdate,
 		AccountID: id,
+		UserID:    types.GetUserIDFromContext(r),
 		Message:   "更新账号配置",
 		Status:    "success",
 	})
@@ -307,6 +370,24 @@ func (h *AccountHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	}
 	id := parts[3]
 
+	// 检查所有权
+	hasPermission, _, err := h.checkAccountOwnership(r, id)
+	if err != nil {
+		types.RespondJSON(w, http.StatusNotFound, types.Response{
+			Success: false,
+			Message: "账号不存在",
+		})
+		return
+	}
+
+	if !hasPermission {
+		types.RespondJSON(w, http.StatusForbidden, types.Response{
+			Success: false,
+			Message: "权限不足",
+		})
+		return
+	}
+
 	// 停止监控任务
 	_ = h.monitorManager.StopTask(id)
 
@@ -324,6 +405,7 @@ func (h *AccountHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	h.logManager.Log(logger.Event{
 		Type:      logger.EventAccountDelete,
 		AccountID: id,
+		UserID:    types.GetUserIDFromContext(r),
 		Message:   "删除账号",
 		Status:    "success",
 	})

@@ -14,6 +14,7 @@ type Account struct {
 	AccessKey     string        `json:"access_key,omitempty"`
 	SecretKey     string        `json:"secret_key,omitempty"`
 	PoolID        string        `json:"pool_id,omitempty"`
+	UserID        string        `json:"user_id,omitempty"` // 所属用户 ID
 	MonitorConfig MonitorConfig `json:"monitor_config"`
 	CreatedAt     time.Time     `json:"created_at"`
 	UpdatedAt     time.Time     `json:"updated_at"`
@@ -39,6 +40,7 @@ func (a *Account) ToSafeAccount() SafeAccount {
 		Name:          a.Name,
 		Type:          a.Type,
 		Username:      a.Username,
+		UserID:        a.UserID,
 		MonitorConfig: a.MonitorConfig,
 		CreatedAt:     a.CreatedAt,
 		UpdatedAt:     a.UpdatedAt,
@@ -51,6 +53,7 @@ type SafeAccount struct {
 	Name          string        `json:"name"`
 	Type          string        `json:"type"`
 	Username      string        `json:"username,omitempty"`
+	UserID        string        `json:"user_id,omitempty"`
 	MonitorConfig MonitorConfig `json:"monitor_config"`
 	CreatedAt     time.Time     `json:"created_at"`
 	UpdatedAt     time.Time     `json:"updated_at"`

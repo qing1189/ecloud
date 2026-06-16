@@ -13,11 +13,24 @@
         class="login-form"
         @submit.prevent="handleLogin"
       >
+        <el-form-item prop="username">
+          <el-input
+            v-model="loginForm.username"
+            placeholder="请输入用户名"
+            size="large"
+            @keyup.enter="handleLogin"
+          >
+            <template #prefix>
+              <el-icon><User /></el-icon>
+            </template>
+          </el-input>
+        </el-form-item>
+
         <el-form-item prop="password">
           <el-input
             v-model="loginForm.password"
             type="password"
-            placeholder="请输入管理员密码"
+            placeholder="请输入密码"
             size="large"
             show-password
             @keyup.enter="handleLogin"
@@ -42,7 +55,7 @@
       </el-form>
 
       <div class="login-footer">
-        <p>首次启动请查看控制台输出的初始密码</p>
+        <p>首次启动请查看控制台输出的默认用户名和密码</p>
       </div>
     </div>
   </div>
@@ -53,7 +66,7 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
-import { Lock } from '@element-plus/icons-vue'
+import { Lock, User } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -62,10 +75,14 @@ const loginFormRef = ref(null)
 const loading = ref(false)
 
 const loginForm = reactive({
+  username: '',
   password: ''
 })
 
 const rules = {
+  username: [
+    { required: true, message: '请输入用户名', trigger: 'blur' }
+  ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
     { min: 8, message: '密码长度至少为 8 位', trigger: 'blur' }
@@ -80,7 +97,7 @@ const handleLogin = async () => {
 
     loading.value = true
     try {
-      await userStore.login(loginForm.password)
+      await userStore.login(loginForm.username, loginForm.password)
       ElMessage.success('登录成功')
       router.push('/')
     } catch (error) {

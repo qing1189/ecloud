@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// AuthMiddleware JWT 认证中间件（临时简化版本）
+// AuthMiddleware JWT 认证中间件
 func AuthMiddleware(authManager *auth.Manager) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -45,11 +45,11 @@ func AuthMiddleware(authManager *auth.Manager) func(http.Handler) http.Handler {
 				return
 			}
 
-			// 将用户信息存入上下文（这里简化处理）
-			_ = claims
+			// 将用户信息存入 Context
+			ctx := types.WithUserContext(r.Context(), claims.UserID, claims.Username, claims.Role)
 
 			// 继续处理请求
-			next.ServeHTTP(w, r)
+			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }

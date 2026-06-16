@@ -15,13 +15,16 @@ services:
     ports:
       - "${WEB_PORT:-8088}:8088"
     volumes:
-      # 持久化存储数据
-      - ./data/store:/app/store
-      # 可选：挂载配置文件（用于 CLI 模式兼容）
+      # SQLite 数据库持久化
+      - ./data:/app/data
+      # 可选：挂载配置文件
       - ./data/config.yml:/app/config.yml:ro
     environment:
       - TZ=${TZ:-Asia/Shanghai}
       - LOG_LEVEL=${LOG_LEVEL:-info}
+      # 管理员账号配置（首次启动时使用）
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
     networks:
       - ecloud-network
     healthcheck:

@@ -24,6 +24,11 @@
           </template>
         </el-table-column>
         <el-table-column prop="username" label="用户名" width="150" />
+        <el-table-column prop="user_id" label="创建者" width="120" v-if="userStore.isAdmin">
+          <template #default="{ row }">
+            <el-tag size="small">{{ getUserLabel(row.user_id) }}</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="监控状态" width="100">
           <template #default="{ row }">
             <el-tag :type="row.monitor_config.enabled ? 'success' : 'info'" size="small">
@@ -276,10 +281,19 @@ import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { accountAPI, logAPI } from '@/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh } from '@element-plus/icons-vue'
+import { useUserStore } from '@/stores/user'
 
+const userStore = useUserStore()
 const loading = ref(false)
 const submitting = ref(false)
 const accounts = ref([])
+
+// 获取用户标签（用于显示创建者）
+const getUserLabel = (userId) => {
+  if (!userId) return '-'
+  if (userId === userStore.userInfo.id) return '我'
+  return userId.replace('user_', '').substring(0, 8)
+}
 
 const dialogVisible = ref(false)
 const dialogMode = ref('add') // 'add' or 'edit'

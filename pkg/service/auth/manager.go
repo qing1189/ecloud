@@ -1,9 +1,11 @@
 package auth
 
 import (
+	"database/sql"
+	"ecloud_computer_auto_boot/pkg/service/user"
 	"ecloud_computer_auto_boot/pkg/store"
 	"errors"
-	"time"
+	"os"
 )
 
 var (
@@ -11,106 +13,115 @@ var (
 	ErrUserNotFound    = errors.New("用户不存在")
 )
 
-// AuthStore 认证信息存储
-type AuthStore struct {
-	Admin     AdminAuth `json:"admin"`
-	SecretKey string    `json:"secret_key"` // JWT 密钥
-}
-
-// AdminAuth 管理员认证信息
-type AdminAuth struct {
-	PasswordHash string    `json:"password_hash"`
-	CreatedAt    time.Time `json:"created_at"`
-}
-
 // Manager 认证管理器
 type Manager struct {
-	secretKey string
+	secretKey   string
+	userManager *user.Manager
 }
 
 // NewManager 创建认证管理器
-func NewManager() *Manager {
-	return &Manager{}
+func NewManager(userManager *user.Manager) *Manager {
+	return &Manager{
+		userManager: userManager,
+	}
 }
 
-// Init 初始化认证信息（首次启动生成密码）
-func (m *Manager) Init() (string, error) {
-	// 检查是否已存在
-	if store.FileExists(store.AuthFile) {
-		// 加载密钥
-		var authStore AuthStore
-		if err := store.ReadJSON(store.AuthFile, &authStore); err != nil {
-			return "", err
+// Init 初始化认证信息（加载 JWT 密钥，检查是否需要创建默认管理员）
+func (m *Manager) Init() (needCreateAdmin bool, err error) {
+	// 1. 尝试从 auth 表加载 secret_key（兼容旧版本）
+	var secretKey string
+	err = store.DB().QueryRow("SELECT secret_key FROM auth WHERE id = 1").Scan(&secretKey)
+
+	if err == nil {
+		// 旧版本存在 auth 表，加载密钥
+		m.secretKey = secretKey
+	} else if err == sql.ErrNoRows {
+		// auth 表为空，生成新密钥并保存
+		secretKey, err = GenerateSecretKey()
+		if err != nil {
+			return false, err
 		}
-		m.secretKey = authStore.SecretKey
-		return "", nil // 已初始化，返回空密码
+		m.secretKey = secretKey
+
+		// 保存到 auth 表（保持兼容）
+		_, _ = store.DB().Exec(`INSERT INTO auth (id, secret_key, created_at)
+			VALUES (1, ?, datetime('now','localtime'))`, secretKey)
+	} else {
+		return false, err
 	}
 
-	// 首次初始化：生成随机密码
-	password, err := GenerateRandomPassword(12)
+	// 2. 检查是否存在用户
+	hasUsers, err := m.userManager.HasUsers()
 	if err != nil {
-		return "", err
+		return false, err
 	}
 
-	// 生成密钥
-	secretKey, err := GenerateSecretKey()
-	if err != nil {
-		return "", err
-	}
-	m.secretKey = secretKey
-
-	// 哈希密码（这里用简单的方式，稍后用 bcrypt 替换）
-	passwordHash := hashPassword(password)
-
-	authStore := AuthStore{
-		Admin: AdminAuth{
-			PasswordHash: passwordHash,
-			CreatedAt:    time.Now(),
-		},
-		SecretKey: secretKey,
+	// 3. 如果没有用户，标记需要创建默认管理员
+	if !hasUsers {
+		return true, nil
 	}
 
-	if err := store.WriteJSON(store.AuthFile, authStore); err != nil {
-		return "", err
-	}
-
-	return password, nil
+	return false, nil
 }
 
-// VerifyPassword 验证密码
-func (m *Manager) VerifyPassword(password string) error {
-	var authStore AuthStore
-	if err := store.ReadJSON(store.AuthFile, &authStore); err != nil {
+// Login 用户登录
+func (m *Manager) Login(username, password string) (token string, userInfo *user.User, err error) {
+	// 根据用户名查找用户
+	u, err := m.userManager.GetUserByUsername(username)
+	if err != nil {
+		if err == user.ErrUserNotFound {
+			return "", nil, ErrUserNotFound
+		}
+		return "", nil, err
+	}
+
+	// 验证密码
+	if !CheckPassword(password, u.PasswordHash) {
+		return "", nil, ErrInvalidPassword
+	}
+
+	// 更新最后登录时间
+	_ = m.userManager.UpdateLastLogin(u.ID)
+
+	// 生成 Token
+	token, err = m.GenerateToken(u.ID, u.Username, u.Role)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return token, u, nil
+}
+
+// ChangePassword 修改用户密码
+func (m *Manager) ChangePassword(userID, oldPassword, newPassword string) error {
+	// 获取用户
+	u, err := m.userManager.GetUserByID(userID)
+	if err != nil {
 		return err
 	}
 
-	if authStore.Admin.PasswordHash == "" {
-		return ErrUserNotFound
-	}
-
-	if !checkPassword(password, authStore.Admin.PasswordHash) {
+	// 验证旧密码
+	if !CheckPassword(oldPassword, u.PasswordHash) {
 		return ErrInvalidPassword
 	}
 
-	return nil
-}
-
-// ChangePassword 修改密码
-func (m *Manager) ChangePassword(oldPassword, newPassword string) error {
-	// 验证旧密码
-	if err := m.VerifyPassword(oldPassword); err != nil {
+	// 哈希新密码
+	newHash, err := HashPassword(newPassword)
+	if err != nil {
 		return err
 	}
 
 	// 更新密码
-	var authStore AuthStore
-	if err := store.ReadJSON(store.AuthFile, &authStore); err != nil {
+	return m.userManager.UpdatePassword(userID, newHash)
+}
+
+// ResetPassword 重置用户密码（管理员操作，无需验证旧密码）
+func (m *Manager) ResetPassword(userID, newPassword string) error {
+	newHash, err := HashPassword(newPassword)
+	if err != nil {
 		return err
 	}
-
-	authStore.Admin.PasswordHash = hashPassword(newPassword)
-
-	return store.WriteJSON(store.AuthFile, authStore)
+	return m.userManager.UpdatePassword(userID, newHash)
 }
 
 // GetSecretKey 获取 JWT 密钥
@@ -118,17 +129,34 @@ func (m *Manager) GetSecretKey() string {
 	return m.secretKey
 }
 
-// 简单的密码哈希（临时实现，后续用 bcrypt）
-func hashPassword(password string) string {
-	// TODO: 替换为 bcrypt
-	return base64Encode(password)
-}
+// CreateDefaultAdmin 创建默认管理员账号
+func (m *Manager) CreateDefaultAdmin() (username, password string, err error) {
+	// 读取环境变量
+	username = os.Getenv("ADMIN_USERNAME")
+	if username == "" {
+		username = "admin"
+	}
 
-func checkPassword(password, hash string) bool {
-	// TODO: 替换为 bcrypt
-	return base64Encode(password) == hash
-}
+	password = os.Getenv("ADMIN_PASSWORD")
+	if password == "" {
+		// 生成随机密码
+		password, err = GenerateRandomPassword(12)
+		if err != nil {
+			return "", "", err
+		}
+	}
 
-func base64Encode(s string) string {
-	return "hash_" + s // 临时简单实现
+	// 哈希密码
+	passwordHash, err := HashPassword(password)
+	if err != nil {
+		return "", "", err
+	}
+
+	// 创建管理员用户
+	_, err = m.userManager.CreateUser(username, passwordHash, "admin", "系统管理员", "")
+	if err != nil {
+		return "", "", err
+	}
+
+	return username, password, nil
 }

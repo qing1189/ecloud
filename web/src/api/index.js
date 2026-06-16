@@ -3,19 +3,59 @@ import request from '@/utils/request'
 // 认证相关
 export const authAPI = {
   // 登录
-  login(password) {
-    return request.post('/auth/login', { password })
+  login(username, password) {
+    return request.post('/auth/login', { username, password })
   },
 
   // 验证 Token
   verify() {
     return request.get('/auth/verify')
+  }
+}
+
+// 用户管理
+export const userAPI = {
+  // 获取当前用户信息
+  getCurrentUser() {
+    return request.get('/users/me')
+  },
+
+  // 获取用户列表（仅管理员）
+  list() {
+    return request.get('/users')
+  },
+
+  // 创建用户（仅管理员）
+  create(data) {
+    return request.post('/users', data)
+  },
+
+  // 获取用户详情
+  get(id) {
+    return request.get(`/users/${id}`)
+  },
+
+  // 更新用户信息
+  update(id, data) {
+    return request.put(`/users/${id}`, data)
+  },
+
+  // 删除用户（仅管理员）
+  delete(id) {
+    return request.delete(`/users/${id}`)
   },
 
   // 修改密码
-  changePassword(oldPassword, newPassword) {
-    return request.post('/auth/change-password', {
+  changePassword(id, oldPassword, newPassword) {
+    return request.put(`/users/${id}/password`, {
       old_password: oldPassword,
+      new_password: newPassword
+    })
+  },
+
+  // 重置密码（管理员）
+  resetPassword(id, newPassword) {
+    return request.put(`/users/${id}/password`, {
       new_password: newPassword
     })
   }

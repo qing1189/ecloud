@@ -1,7 +1,9 @@
 package logger
 
 import (
+	"encoding/json"
 	"ecloud_computer_auto_boot/pkg/store"
+	"math/rand"
 	"sync"
 	"time"
 )
@@ -29,14 +31,10 @@ type Event struct {
 	Timestamp time.Time              `json:"timestamp"`
 	Type      EventType              `json:"type"`
 	AccountID string                 `json:"account_id,omitempty"`
+	UserID    string                 `json:"user_id,omitempty"` // 操作者用户 ID
 	Message   string                 `json:"message"`
 	Details   map[string]interface{} `json:"details,omitempty"`
 	Status    string                 `json:"status"` // success, failed, info
-}
-
-// LogStore 日志存储
-type LogStore struct {
-	Events []Event `json:"events"`
 }
 
 // Manager 日志管理器
@@ -92,22 +90,17 @@ func (m *Manager) processEvents() {
 	}
 }
 
-// saveEvent 保存事件到文件
+// saveEvent 保存事件到 SQLite
 func (m *Manager) saveEvent(event Event) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	var logStore LogStore
-	_ = store.ReadJSON(store.LogsFile, &logStore)
+	details := store.JSONString(event.Details)
+	ts := event.Timestamp.Format("2006-01-02 15:04:05")
 
-	logStore.Events = append(logStore.Events, event)
-
-	// 保留最近 1000 条
-	if len(logStore.Events) > 1000 {
-		logStore.Events = logStore.Events[len(logStore.Events)-1000:]
-	}
-
-	_ = store.WriteJSON(store.LogsFile, logStore)
+	_, _ = store.DB().Exec(`INSERT INTO logs (id, timestamp, type, account_id, user_id, message, details, status)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		event.ID, ts, string(event.Type), event.AccountID, event.UserID, event.Message, details, event.Status)
 }
 
 // GetLogs 获取日志列表
@@ -115,49 +108,141 @@ func (m *Manager) GetLogs(page, limit int, accountID string, eventType EventType
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	var logStore LogStore
-	if err := store.ReadJSON(store.LogsFile, &logStore); err != nil {
+	// 构建 WHERE 条件
+	where := "1=1"
+	args := []interface{}{}
+	if accountID != "" {
+		where += " AND account_id = ?"
+		args = append(args, accountID)
+	}
+	if eventType != "" {
+		where += " AND type = ?"
+		args = append(args, string(eventType))
+	}
+
+	// 查询总数
+	var total int
+	countQuery := "SELECT COUNT(*) FROM logs WHERE " + where
+	err := store.DB().QueryRow(countQuery, args...).Scan(&total)
+	if err != nil {
 		return nil, 0, err
 	}
 
-	// 筛选
-	filtered := make([]Event, 0)
-	for i := len(logStore.Events) - 1; i >= 0; i-- {
-		event := logStore.Events[i]
-
-		if accountID != "" && event.AccountID != accountID {
-			continue
-		}
-
-		if eventType != "" && event.Type != eventType {
-			continue
-		}
-
-		filtered = append(filtered, event)
-	}
-
-	total := len(filtered)
-
-	// 分页
+	// 分页查询
 	if limit <= 0 {
 		limit = 50
 	}
 	if page <= 0 {
 		page = 1
 	}
+	offset := (page - 1) * limit
 
-	start := (page - 1) * limit
-	end := start + limit
+	query := `SELECT id, timestamp, type, account_id, user_id, message, details, status
+		FROM logs WHERE ` + where + ` ORDER BY timestamp DESC LIMIT ? OFFSET ?`
+	args = append(args, limit, offset)
 
-	if start >= total {
-		return []Event{}, total, nil
+	rows, err := store.DB().Query(query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	events := make([]Event, 0)
+	for rows.Next() {
+		var event Event
+		var ts, eventTypeStr, detailsStr string
+		err := rows.Scan(&event.ID, &ts, &eventTypeStr, &event.AccountID, &event.UserID, &event.Message, &detailsStr, &event.Status)
+		if err != nil {
+			return nil, 0, err
+		}
+		event.Type = EventType(eventTypeStr)
+		event.Timestamp = parseTime(ts)
+		parseDetails(detailsStr, &event.Details)
+		events = append(events, event)
 	}
 
-	if end > total {
-		end = total
+	if events == nil {
+		events = []Event{}
 	}
 
-	return filtered[start:end], total, nil
+	return events, total, rows.Err()
+}
+
+// GetLogsByUser 获取指定用户的日志列表
+func (m *Manager) GetLogsByUser(page, limit int, userID string, accountID string, eventType EventType) ([]Event, int, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	// 构建 WHERE 条件
+	where := "user_id = ?"
+	args := []interface{}{userID}
+
+	if accountID != "" {
+		where += " AND account_id = ?"
+		args = append(args, accountID)
+	}
+	if eventType != "" {
+		where += " AND type = ?"
+		args = append(args, string(eventType))
+	}
+
+	// 查询总数
+	var total int
+	countQuery := "SELECT COUNT(*) FROM logs WHERE " + where
+	err := store.DB().QueryRow(countQuery, args...).Scan(&total)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// 分页查询
+	if limit <= 0 {
+		limit = 50
+	}
+	if page <= 0 {
+		page = 1
+	}
+	offset := (page - 1) * limit
+
+	query := `SELECT id, timestamp, type, account_id, user_id, message, details, status
+		FROM logs WHERE ` + where + ` ORDER BY timestamp DESC LIMIT ? OFFSET ?`
+	args = append(args, limit, offset)
+
+	rows, err := store.DB().Query(query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	events := make([]Event, 0)
+	for rows.Next() {
+		var event Event
+		var ts, eventTypeStr, detailsStr string
+		err := rows.Scan(&event.ID, &ts, &eventTypeStr, &event.AccountID, &event.UserID, &event.Message, &detailsStr, &event.Status)
+		if err != nil {
+			return nil, 0, err
+		}
+		event.Type = EventType(eventTypeStr)
+		event.Timestamp = parseTime(ts)
+		parseDetails(detailsStr, &event.Details)
+		events = append(events, event)
+	}
+
+	if events == nil {
+		events = []Event{}
+	}
+
+	return events, total, rows.Err()
+}
+
+// parseDetails 解析 JSON details 字段
+func parseDetails(s string, v *map[string]interface{}) {
+	if s == "" || s == "{}" {
+		*v = map[string]interface{}{}
+		return
+	}
+	if err := json.Unmarshal([]byte(s), v); err != nil {
+		*v = map[string]interface{}{}
+	}
 }
 
 // generateEventID 生成事件ID
@@ -169,7 +254,16 @@ func randomString(n int) string {
 	const letters = "abcdefghijklmnopqrstuvwxyz0123456789"
 	b := make([]byte, n)
 	for i := range b {
-		b[i] = letters[time.Now().UnixNano()%int64(len(letters))]
+		b[i] = letters[rand.Intn(len(letters))]
 	}
 	return string(b)
+}
+
+// parseTime 解析 SQLite 时间字符串
+func parseTime(s string) time.Time {
+	t, err := time.Parse("2006-01-02 15:04:05", s)
+	if err != nil {
+		return time.Now()
+	}
+	return t
 }

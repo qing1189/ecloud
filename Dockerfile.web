@@ -58,8 +58,8 @@ WORKDIR /app
 COPY --from=backend-builder /app/ecloud .
 COPY --from=backend-builder /app/static ./static
 
-# 创建存储目录
-RUN mkdir -p /app/store
+# 创建数据目录（SQLite 存放位置）
+RUN mkdir -p /app/data
 
 # 暴露端口
 EXPOSE 8088

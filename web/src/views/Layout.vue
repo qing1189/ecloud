@@ -28,6 +28,10 @@
           <el-icon><Document /></el-icon>
           <span>操作日志</span>
         </el-menu-item>
+        <el-menu-item index="/users" v-if="userStore.isAdmin">
+          <el-icon><UserFilled /></el-icon>
+          <span>用户管理</span>
+        </el-menu-item>
       </el-menu>
     </el-aside>
 
@@ -42,7 +46,14 @@
           <el-dropdown @command="handleCommand">
             <span class="user-info">
               <el-icon><User /></el-icon>
-              <span>管理员</span>
+              <span>{{ userStore.userInfo.display_name || userStore.userInfo.username }}</span>
+              <el-tag
+                size="small"
+                :type="userStore.isAdmin ? 'danger' : 'info'"
+                style="margin-left: 8px"
+              >
+                {{ userStore.isAdmin ? '管理员' : '用户' }}
+              </el-tag>
               <el-icon class="el-icon--right"><ArrowDown /></el-icon>
             </span>
             <template #dropdown>
@@ -113,11 +124,12 @@
 import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { authAPI } from '@/api'
+import { userAPI } from '@/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Odometer,
   User,
+  UserFilled,
   Monitor,
   Document,
   ArrowDown,
@@ -186,7 +198,8 @@ const handleChangePassword = async () => {
     if (!valid) return
 
     try {
-      await authAPI.changePassword(
+      await userAPI.changePassword(
+        userStore.userInfo.id,
         passwordForm.value.oldPassword,
         passwordForm.value.newPassword
       )

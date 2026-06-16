@@ -3,6 +3,8 @@ package auth
 import (
 	"errors"
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 var (
@@ -12,38 +14,56 @@ var (
 
 // Claims JWT 声明
 type Claims struct {
-	Username  string    `json:"username"`
-	ExpiresAt time.Time `json:"expires_at"`
+	UserID   string `json:"user_id"`
+	Username string `json:"username"`
+	Role     string `json:"role"`
+	jwt.RegisteredClaims
 }
 
-// GenerateToken 生成 JWT Token（简化版本）
-func (m *Manager) GenerateToken(username string) (string, error) {
+// GenerateToken 生成 JWT Token
+func (m *Manager) GenerateToken(userID, username, role string) (string, error) {
 	// 24 小时有效期
 	expiresAt := time.Now().Add(24 * time.Hour)
 
-	// 简单的 token 格式：username:timestamp:signature
-	// TODO: 替换为真正的 JWT
-	token := username + ":" + expiresAt.Format(time.RFC3339) + ":" + m.secretKey[:10]
+	claims := Claims{
+		UserID:   userID,
+		Username: username,
+		Role:     role,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(expiresAt),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			NotBefore: jwt.NewNumericDate(time.Now()),
+		},
+	}
 
-	return token, nil
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(m.secretKey))
 }
 
-// ValidateToken 验证 JWT Token（简化版本）
-func (m *Manager) ValidateToken(token string) (*Claims, error) {
-	if token == "" {
+// ValidateToken 验证 JWT Token
+func (m *Manager) ValidateToken(tokenString string) (*Claims, error) {
+	if tokenString == "" {
 		return nil, ErrInvalidToken
 	}
 
-	// TODO: 替换为真正的 JWT 验证
-	// 临时实现：简单检查
-	if len(token) < 20 {
+	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+		// 验证签名方法
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, ErrInvalidToken
+		}
+		return []byte(m.secretKey), nil
+	})
+
+	if err != nil {
+		if errors.Is(err, jwt.ErrTokenExpired) {
+			return nil, ErrTokenExpired
+		}
 		return nil, ErrInvalidToken
 	}
 
-	claims := &Claims{
-		Username:  "admin",
-		ExpiresAt: time.Now().Add(24 * time.Hour),
+	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
+		return claims, nil
 	}
 
-	return claims, nil
+	return nil, ErrInvalidToken
 }

@@ -1,307 +1,215 @@
-# eCloud Computer Auto Boot
+# eCloud 云电脑监控系统
 
-移动云电脑自动开机监控工具 - 支持 CLI 和 Web 两种管理方式
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Go Version](https://img.shields.io/badge/go-1.21+-blue.svg)](https://golang.org)
+[![Vue Version](https://img.shields.io/badge/vue-3.x-green.svg)](https://vuejs.org)
 
-[![Go Version](https://img.shields.io/badge/Go-1.23+-blue.svg)](https://golang.org)
-[![Vue Version](https://img.shields.io/badge/Vue-3.0+-green.svg)](https://vuejs.org)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+自动化监控和管理移动云电脑实例，支持多用户权限管理的 Web 管理平台。
 
 ---
 
-## ✨ 功能特性
+## ✨ 主要特性
 
-### CLI 模式（原有功能）
-- ✅ 支持移动云公众版账号
-- ✅ 支持移动云政企版账号
-- ✅ 自动监控云电脑状态
-- ✅ 检测到关机自动开机
-- ✅ 支持配置文件管理
-
-### 🆕 Web 管理界面（新增）
-- ✅ **现代化 Web 界面** - Vue 3 + Element Plus
-- ✅ **多账号管理** - 支持添加多个云电脑账号
-- ✅ **实时监控** - 可视化展示所有账号状态
-- ✅ **热加载配置** - 修改配置无需重启服务
-- ✅ **操作日志** - 记录所有开机操作和事件
-- ✅ **密码保护** - JWT Token 认证
-- ✅ **Docker 支持** - 一键部署
+- 🔐 **多用户权限管理**：支持管理员和普通用户两种角色
+- 🖥️ **云账号管理**：支持公众版和政企版账号
+- 📊 **实时监控**：自动检测机器状态，异常自动开机
+- 📝 **操作日志**：完整记录所有操作，支持审计
+- 🛡️ **安全可靠**：bcrypt 密码加密，JWT Token 认证
+- 🌐 **现代化界面**：Vue 3 + Element Plus 响应式设计
+- 🐳 **容器化部署**：Docker Compose 一键部署
 
 ---
 
 ## 🚀 快速开始
 
-### 方式一：Docker 部署（推荐 - Web 模式）
+### 使用 Docker Compose（推荐）
 
 ```bash
-# 1. 克隆项目
-git clone https://github.com/your-repo/ecloud.git
+# 1. 克隆仓库
+git clone <repository-url>
 cd ecloud
 
-# 2. 一键部署
-./deploy.sh
+# 2. 修改环境变量（可选，建议修改默认密码）
+cp .env.example .env
+nano .env
 
-# 或使用 docker-compose
+# 3. 启动服务
 docker-compose up -d
 
-# 3. 访问 Web 界面
-# 浏览器打开：http://localhost:8088
-# 查看初始密码：docker-compose logs ecloud-web | grep "密码"
+# 4. 访问管理界面
+http://localhost:8088
 ```
 
-**详细说明：** 查看 [DOCKER_DEPLOY.md](DOCKER_DEPLOY.md)
+**默认登录账号**：
+- 用户名：`admin`
+- 密码：`admin123456`（在 `.env` 文件中配置）
 
-### 方式二：传统部署
+⚠️ **生产环境请务必修改密码！**
 
-#### 1. 编译
-
-```bash
-# 下载依赖
-go mod tidy
-
-# 编译
-go build -o ecloud .
-```
-
-#### 2. 使用
-
-**CLI 模式（单账号）：**
-
-```bash
-# 首次使用（公众版）- 设备信任
-./ecloud trust
-
-# 查看云电脑列表
-./ecloud list-machines
-
-# 启动监控（读取 config.yml）
-./ecloud run
-```
-
-**Web 模式（多账号）：**
-
-```bash
-# 启动 Web 服务
-./ecloud server
-
-# 访问 http://localhost:8088
-# 使用生成的密码登录
-```
+详细部署说明请查看：[快速开始指南](QUICKSTART.md)
 
 ---
 
-## 📋 配置说明
+## 📋 功能概览
 
-### CLI 模式配置（config.yml）
+### 管理员功能
+- ✅ 用户管理（创建、编辑、删除用户）
+- ✅ 查看所有云账号和监控状态
+- ✅ 查看所有操作日志
+- ✅ 重置用户密码
 
-默认读取运行目录中的 `config.yml` 作为配置，如果无配置文件，首次运行将会生成一个默认的配置文件。
+### 普通用户功能
+- ✅ 管理自己的云账号
+- ✅ 配置监控任务
+- ✅ 查看自己的操作日志
+- ✅ 修改自己的密码
 
-#### 示例配置
+---
 
-```yaml
-cron:
-    # 任务执行间隔（秒）
-    duration: 60
-    # 需要监控的实例 machine id, 如果为空，则监控所有实例
-    # machines: []
-    machines:
-        - machine_id_1
-        - machine_id_2
-secret:
-    # 客户端类型, public: 公众版, business: 政企版
-    type: public
-    # [公众版专用] 登录账号
-    username: ""
-    # [公众版专用] 登录密码
-    password: ""
-    # [政企版专用] 移动云 Access Key
-    access-key: ""
-    # [政企版专用] 移动云 Secret Key
-    secret-key: ""
-    # [政企版专用] 资源池ID
-    pool-id: "CIDC-CORE-00"
-server:
-    # server地址
-    url: ""
+## 🔐 权限模型
+
+| 角色 | 权限说明 |
+|------|---------|
+| **admin** | 管理所有用户、查看所有云账号、管理所有监控任务、查看所有日志 |
+| **user** | 仅管理自己的云账号、查看自己的日志、修改自己的密码 |
+
+---
+
+## 🏗️ 技术栈
+
+### 后端
+- **语言**：Go 1.21+
+- **框架**：标准库 net/http
+- **数据库**：SQLite 3
+- **认证**：JWT (golang-jwt/jwt)
+- **密码加密**：bcrypt
+
+### 前端
+- **框架**：Vue 3 (Composition API)
+- **UI 库**：Element Plus
+- **状态管理**：Pinia
+- **路由**：Vue Router
+- **构建工具**：Vite
+
+---
+
+## 📦 项目结构
+
 ```
-
-### Web 模式配置（.env）
-
-```bash
-# Web 服务端口
-WEB_PORT=8088
-
-# 时区
-TZ=Asia/Shanghai
-
-# 日志级别
-LOG_LEVEL=info
+ecloud/
+├── cmd/                    # 命令行入口
+│   ├── root.go
+│   ├── server.go          # Web 服务器启动
+│   └── trust.go           # 设备信任命令
+├── pkg/
+│   ├── api/               # API 路由和处理器
+│   │   ├── handlers/      # 请求处理器
+│   │   ├── middleware.go  # 认证中间件
+│   │   └── router.go      # 路由配置
+│   ├── service/           # 业务逻辑层
+│   │   ├── user/          # 用户管理
+│   │   ├── auth/          # 认证服务
+│   │   ├── account/       # 账号管理
+│   │   ├── monitor/       # 监控服务
+│   │   └── logger/        # 日志服务
+│   └── store/             # 数据存储层
+├── web/                   # Vue 前端项目
+│   ├── src/
+│   │   ├── views/         # 页面组件
+│   │   ├── stores/        # Pinia 状态管理
+│   │   ├── api/           # API 接口定义
+│   │   └── router/        # 路由配置
+│   └── vite.config.js
+├── docker-compose.yml     # Docker Compose 配置
+├── Dockerfile.web         # Web 服务 Docker 镜像
+├── .env.example           # 环境变量示例
+└── README.md
 ```
 
 ---
 
 ## 📖 文档
 
-| 文档 | 说明 |
-|------|------|
-| [DOCKER_DEPLOY.md](DOCKER_DEPLOY.md) | 🐳 Docker 部署完整指南 |
-| [WEB_USAGE.md](WEB_USAGE.md) | 🌐 Web 界面使用文档 |
-| [TEST_GUIDE.md](TEST_GUIDE.md) | 🧪 API 测试和故障排查 |
-| [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) | 📊 项目总结报告 |
-| [THIRD_REVIEW.md](THIRD_REVIEW.md) | ✅ 第三次复核报告（完美通过）|
+- [快速开始指南](QUICKSTART.md) - 5 分钟快速部署
+- [多用户系统改造报告](MULTI_USER_MIGRATION.md) - 完整的技术文档
+- [API 文档](#) - API 接口说明（待补充）
 
 ---
 
-## 🎯 使用场景
+## 🔒 安全建议
 
-### CLI 模式
-适合个人用户、单账号场景：
-- 简单配置即可使用
-- 适合在服务器上后台运行
-- 资源占用少
-
-### Web 模式
-适合团队、多账号场景：
-- 管理多个云电脑账号
-- 可视化监控所有状态
-- 支持动态配置管理
-- 操作日志追踪
+1. **生产环境在 `.env` 文件中设置强密码**（至少12位，包含大小写字母、数字、特殊字符）
+2. 使用 Nginx 反向代理并配置 HTTPS
+3. 配置防火墙规则限制访问 IP
+4. 定期备份数据库文件（`ecloud.db`）
+5. 不要将 `.env` 文件提交到版本控制系统
 
 ---
 
-## 🖥️ Web 界面预览
+## 🛠️ 开发指南
 
-### 功能模块
+### 本地开发
 
-**登录页面**
-- 密码保护
-- 首次启动自动生成密码
-
-**仪表盘**
-- 统计卡片：账号数、云电脑数、开机次数、活跃任务
-- 近期操作：最新操作日志
-- 监控状态：所有账号实时状态
-
-**账号管理**
-- 添加/编辑/删除账号
-- 启用/停用监控
-- 配置检查间隔
-- 指定监控机器
-
-**实时监控**
-- 查看所有任务状态
-- 最后检查时间
-- 最近事件记录
-- 自动刷新
-
-**操作日志**
-- 分页查询
-- 按类型筛选
-- 查看详细信息
-
----
-
-## 🛠️ 技术栈
-
-### 后端
-- **Go 1.23+** - 主要开发语言
-- **Gin** - Web 框架
-- **Viper** - 配置管理
-- **Cron** - 定时任务
-
-### 前端
-- **Vue 3** - 前端框架
-- **Element Plus** - UI 组件库
-- **Pinia** - 状态管理
-- **Vite** - 构建工具
-
-### 部署
-- **Docker** - 容器化
-- **Docker Compose** - 编排
-- **Nginx** - 反向代理（可选）
-
----
-
-## 🔧 Makefile 命令
+#### 后端开发
 
 ```bash
-make help          # 查看所有命令
-make deploy        # 一键部署（Docker）
-make up            # 启动服务
-make down          # 停止服务
-make logs          # 查看日志
-make backup        # 备份数据
-make clean         # 清理数据
+# 安装依赖
+go mod download
+
+# 运行后端
+go run . server
+
+# 编译
+go build -o ecloud-server .
+```
+
+#### 前端开发
+
+```bash
+cd web
+
+# 安装依赖
+npm install
+
+# 开发模式
+npm run dev
+
+# 构建生产版本
+npm run build
+```
+
+### 环境变量
+
+复制 `.env.example` 为 `.env` 并根据需要修改：
+
+```env
+# 管理员账号配置
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=admin123456
+
+# 服务配置
+WEB_PORT=8088
+TZ=Asia/Shanghai
+LOG_LEVEL=info
 ```
 
 ---
 
-## 🐛 故障排查
+## 📝 更新日志
 
-### Docker 相关
+### v2.0.0 - 多用户版本 (2026-06-16)
+- ✨ 新增多用户权限管理系统
+- 🔐 密码加密升级为 bcrypt
+- 🔑 JWT 认证升级为标准库实现
+- 🎨 前端界面全面改版
+- 📊 新增用户管理页面
+- 🛡️ 增加基于角色的访问控制（RBAC）
 
-```bash
-# 查看容器状态
-docker-compose ps
-
-# 查看日志
-docker-compose logs -f
-
-# 重启服务
-docker-compose restart
-
-# 健康检查
-curl http://localhost:8088/health
-```
-
-### CLI 相关
-
-```bash
-# 公众版设备信任
-./ecloud trust
-
-# 查看机器列表
-./ecloud list-machines
-
-# 检查配置文件
-cat config.yml
-```
-
-详细故障排查请查看 [TEST_GUIDE.md](TEST_GUIDE.md)
-
----
-
-## 📊 性能指标
-
-- **并发支持**：10+ 账号同时监控
-- **响应时间**：API 平均 < 50ms
-- **内存占用**：约 30-50 MB
-- **Docker 镜像**：约 30 MB（Alpine 基础镜像）
-
----
-
-## 🔐 安全建议
-
-1. **修改默认密码** - 首次登录后立即修改
-2. **网络隔离** - 仅在可信网络使用
-3. **HTTPS 部署** - 使用 Nginx 反向代理
-4. **定期备份** - 备份 `data/store` 目录
-5. **访问控制** - 配置防火墙规则
-
----
-
-## 🎉 项目特点
-
-### 开发成果
-- ✅ **8000+ 行代码** - 高质量实现
-- ✅ **50+ 个文件** - 完整项目
-- ✅ **15 个 API** - RESTful 接口
-- ✅ **5 个页面** - 现代化 UI
-
-### 质量保证
-- ✅ **三次复核** - 全部通过
-- ✅ **100% 评分** - 完美质量
-- ✅ **生产就绪** - 立即可用
-- ✅ **完整文档** - 12+ 份文档
+### v1.0.0 - 初始版本
+- 云账号管理
+- 实时监控功能
+- 操作日志记录
+- 单管理员模式
 
 ---
 
@@ -313,25 +221,14 @@ cat config.yml
 
 ## 📄 许可证
 
-MIT License
-
----
-
-## 🙏 致谢
-
-- [Gin](https://github.com/gin-gonic/gin) - Web 框架
-- [Vue.js](https://vuejs.org/) - 前端框架
-- [Element Plus](https://element-plus.org/) - UI 组件库
+[MIT License](LICENSE)
 
 ---
 
 ## 📞 联系方式
 
-- 问题反馈：[GitHub Issues](https://github.com/your-repo/ecloud/issues)
-- 文档：查看项目根目录下的 Markdown 文档
+如有问题，请提交 Issue 或联系开发团队。
 
 ---
 
-**版本：** v1.0.0  
-**最后更新：** 2026-06-15  
-**质量认证：** ✅ 三次复核通过（100/100）
+**开发团队** | **最后更新**：2026-06-16

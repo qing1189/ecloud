@@ -7,12 +7,14 @@ import (
 	"ecloud_computer_auto_boot/pkg/service/auth"
 	"ecloud_computer_auto_boot/pkg/service/logger"
 	"ecloud_computer_auto_boot/pkg/service/monitor"
+	"ecloud_computer_auto_boot/pkg/service/user"
 	"net/http"
 )
 
 // Router 路由配置
 type Router struct {
 	authHandler    *handlers.AuthHandler
+	userHandler    *handlers.UserHandler
 	accountHandler *handlers.AccountHandler
 	monitorHandler *handlers.MonitorHandler
 	logHandler     *handlers.LogHandler
@@ -22,12 +24,14 @@ type Router struct {
 // NewRouter 创建路由器
 func NewRouter(
 	authManager *auth.Manager,
+	userManager *user.Manager,
 	accManager *account.Manager,
 	monitorManager *monitor.Manager,
 	logManager *logger.Manager,
 ) *Router {
 	return &Router{
-		authHandler:    handlers.NewAuthHandler(authManager),
+		authHandler:    handlers.NewAuthHandler(authManager, logManager),
+		userHandler:    handlers.NewUserHandler(userManager, authManager, logManager),
 		accountHandler: handlers.NewAccountHandler(accManager, monitorManager, logManager),
 		monitorHandler: handlers.NewMonitorHandler(monitorManager),
 		logHandler:     handlers.NewLogHandler(logManager),
@@ -57,8 +61,23 @@ func (router *Router) Setup(mux *http.ServeMux) {
 		authMiddleware,
 	))
 
-	mux.Handle("/api/auth/change-password", chain(
-		http.HandlerFunc(router.authHandler.ChangePassword),
+	// 用户管理接口
+	mux.Handle("/api/users", chain(
+		http.HandlerFunc(router.handleUsers),
+		corsMiddleware,
+		loggingMiddleware,
+		authMiddleware,
+	))
+
+	mux.Handle("/api/users/me", chain(
+		http.HandlerFunc(router.userHandler.GetCurrentUser),
+		corsMiddleware,
+		loggingMiddleware,
+		authMiddleware,
+	))
+
+	mux.Handle("/api/users/", chain(
+		http.HandlerFunc(router.handleUserByID),
 		corsMiddleware,
 		loggingMiddleware,
 		authMiddleware,
@@ -157,6 +176,46 @@ func (router *Router) handleAccountByID(w http.ResponseWriter, r *http.Request) 
 		router.accountHandler.UpdateAccount(w, r)
 	case http.MethodDelete:
 		router.accountHandler.DeleteAccount(w, r)
+	default:
+		types.RespondJSON(w, http.StatusMethodNotAllowed, types.Response{
+			Success: false,
+			Message: "方法不允许",
+		})
+	}
+}
+
+// handleUsers 处理 /api/users 路由
+func (router *Router) handleUsers(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		router.userHandler.ListUsers(w, r)
+	case http.MethodPost:
+		router.userHandler.CreateUser(w, r)
+	default:
+		types.RespondJSON(w, http.StatusMethodNotAllowed, types.Response{
+			Success: false,
+			Message: "方法不允许",
+		})
+	}
+}
+
+// handleUserByID 处理 /api/users/:id 路由
+func (router *Router) handleUserByID(w http.ResponseWriter, r *http.Request) {
+	// 检查是否是修改密码操作
+	if len(r.URL.Path) > 14 && r.URL.Path[len(r.URL.Path)-9:] == "/password" {
+		if r.Method == http.MethodPut || r.Method == http.MethodPost {
+			router.userHandler.ChangePassword(w, r)
+			return
+		}
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		router.userHandler.GetUser(w, r)
+	case http.MethodPut:
+		router.userHandler.UpdateUser(w, r)
+	case http.MethodDelete:
+		router.userHandler.DeleteUser(w, r)
 	default:
 		types.RespondJSON(w, http.StatusMethodNotAllowed, types.Response{
 			Success: false,
