@@ -5,28 +5,28 @@ FROM node:20-alpine AS frontend-builder
 WORKDIR /app
 
 # 复制前端依赖文件
-COPY web/package*.json ./web/
+COPY web/package*.json ./
 
-# 安装依赖
-RUN cd web && npm install
+# 使用国内 npm 镜像加速
+RUN npm config set registry https://registry.npmmirror.com && \
+    npm install
 
 # 复制前端源代码
-COPY web/ ./web/
+COPY web/ .
 
-# 构建前端（输出到 /app/static）
-RUN cd web && npm run build
+# 构建前端（输出到 ./dist）
+RUN npm run build -- --outDir=./dist
 
 # 阶段 2：构建后端
 FROM golang:1.23-alpine AS backend-builder
 
-# 安装必要的工具和 CGO 依赖（SQLite 需要）
-RUN apk add --no-cache git gcc musl-dev
-
 WORKDIR /app
 
-# 先复制所有代码（包括前端构建产物）
-COPY . .
-COPY --from=frontend-builder /app/static ./static
+# 安装 CGO 依赖（SQLite 需要）
+RUN apk add --no-cache gcc musl-dev
+
+# 先只复制 go.mod 和 go.sum，利用 Docker 缓存
+COPY go.mod go.sum ./
 
 # 设置环境变量
 ENV GO111MODULE=on
@@ -36,18 +36,25 @@ RUN go env -w GOPROXY=https://ecloud.10086.cn/api/query/developer/nexus/reposito
     go env -w GONOSUMDB=gitlab.ecloud.com && \
     (go get -u gitlab.ecloud.com/ecloud/ecloudsdkcomputer || true)
 
-# 切换到公共代理并构建
-COPY --from=frontend-builder /app/static ./static
-
-# 切换到公共代理构建（启用 CGO 支持 SQLite）
+# 切换到公共代理下载其他依赖
 RUN go env -w GOPROXY=https://goproxy.cn,direct && \
-    CGO_ENABLED=1 GOOS=linux go build -a -ldflags '-linkmode external -extldflags "-static"' -o ecloud .
+    go mod download
+
+# 复制所有代码
+COPY . .
+
+# 复制前端构建产物
+COPY --from=frontend-builder /app/dist ./static
+
+# 构建后端（启用 CGO 支持 SQLite）
+RUN CGO_ENABLED=1 GOOS=linux go build -a -ldflags '-linkmode external -extldflags "-static"' -o ecloud .
 
 # 阶段 3：最终运行镜像
 FROM alpine:latest
 
-# 安装必要的工具：时区数据、CA 证书、wget（用于健康检查）
-RUN apk --no-cache add ca-certificates tzdata wget
+# 使用国内 Alpine 镜像源加速
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
+    apk --no-cache add ca-certificates tzdata wget
 
 # 设置时区
 ENV TZ=Asia/Shanghai
