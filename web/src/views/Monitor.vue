@@ -206,6 +206,7 @@ onUnmounted(() => {
   display: flex;
   gap: 10px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .auto-refresh {
@@ -214,5 +215,38 @@ onUnmounted(() => {
   align-items: center;
   font-size: 14px;
   color: #666;
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+  .toolbar {
+    gap: 8px;
+  }
+
+  .auto-refresh {
+    margin-left: 0;
+    width: 100%;
+    margin-top: 8px;
+    font-size: 13px;
+  }
+
+  /* 表格优化 */
+  .monitor :deep(.el-table) {
+    font-size: 13px;
+  }
+
+  .monitor :deep(.el-table__header) {
+    font-size: 13px;
+  }
+
+  /* 按钮优化 */
+  .monitor :deep(.el-button) {
+    font-size: 13px;
+  }
+
+  /* Tag 标签优化 */
+  .monitor :deep(.el-tag) {
+    font-size: 12px;
+  }
 }
 </style>

@@ -55,14 +55,14 @@
     <el-dialog
       v-model="dialogVisible"
       :title="dialogTitle"
-      width="500px"
+      :width="isMobile ? '95%' : '500px'"
       @close="resetForm"
     >
       <el-form
         ref="formRef"
         :model="form"
         :rules="rules"
-        label-width="100px"
+        :label-width="isMobile ? '80px' : '100px'"
       >
         <el-form-item label="用户名" prop="username">
           <el-input
@@ -104,14 +104,14 @@
     <el-dialog
       v-model="passwordDialogVisible"
       title="重置密码"
-      width="400px"
+      :width="isMobile ? '90%' : '400px'"
       @close="resetPasswordForm"
     >
       <el-form
         ref="passwordFormRef"
         :model="passwordForm"
         :rules="passwordRules"
-        label-width="100px"
+        :label-width="isMobile ? '80px' : '100px'"
       >
         <el-form-item label="新密码" prop="newPassword">
           <el-input
@@ -141,7 +141,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { userAPI } from '@/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
@@ -152,6 +152,12 @@ const userStore = useUserStore()
 const loading = ref(false)
 const submitting = ref(false)
 const users = ref([])
+
+// 响应式检测
+const isMobile = ref(false)
+const checkMobile = () => {
+  isMobile.value = window.innerWidth <= 768
+}
 
 const dialogVisible = ref(false)
 const dialogTitle = ref('添加用户')
@@ -352,6 +358,12 @@ const formatDate = (dateStr) => {
 
 onMounted(() => {
   loadUsers()
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', checkMobile)
 })
 </script>
 
@@ -371,5 +383,36 @@ onMounted(() => {
   margin: 0;
   font-size: 20px;
   font-weight: 500;
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+  .users-container {
+    padding: 0;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .page-header h2 {
+    font-size: 18px;
+  }
+
+  /* 表格优化 */
+  .users-container :deep(.el-table) {
+    font-size: 13px;
+  }
+
+  .users-container :deep(.el-table__header) {
+    font-size: 13px;
+  }
+
+  .users-container :deep(.el-button) {
+    font-size: 12px;
+    padding: 4px 8px;
+  }
 }
 </style>

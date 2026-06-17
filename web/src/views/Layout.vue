@@ -1,7 +1,78 @@
 <template>
   <el-container class="layout-container">
-    <!-- 侧边栏 -->
-    <el-aside width="200px" class="sidebar">
+    <!-- 移动端顶部导航栏 -->
+    <el-header class="mobile-header" v-if="isMobile">
+      <div class="mobile-header-content">
+        <el-button class="menu-toggle" @click="drawerVisible = true" text>
+          <el-icon :size="24"><Expand /></el-icon>
+        </el-button>
+        <h3 class="mobile-title">{{ currentTitle }}</h3>
+        <el-dropdown @command="handleCommand" class="mobile-user-dropdown">
+          <el-button text>
+            <el-icon :size="24"><User /></el-icon>
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item disabled>
+                {{ userStore.userInfo.display_name || userStore.userInfo.username }}
+              </el-dropdown-item>
+              <el-dropdown-item command="changePassword">
+                <el-icon><Key /></el-icon>
+                修改密码
+              </el-dropdown-item>
+              <el-dropdown-item command="logout" divided>
+                <el-icon><SwitchButton /></el-icon>
+                退出登录
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </div>
+    </el-header>
+
+    <!-- 移动端抽屉菜单 -->
+    <el-drawer
+      v-model="drawerVisible"
+      direction="ltr"
+      :size="280"
+      :show-close="false"
+      v-if="isMobile"
+    >
+      <template #header>
+        <div class="drawer-header">
+          <h2>eCloud</h2>
+        </div>
+      </template>
+      <el-menu
+        :default-active="activeMenu"
+        router
+        @select="drawerVisible = false"
+      >
+        <el-menu-item index="/dashboard">
+          <el-icon><Odometer /></el-icon>
+          <span>仪表盘</span>
+        </el-menu-item>
+        <el-menu-item index="/accounts">
+          <el-icon><User /></el-icon>
+          <span>账号管理</span>
+        </el-menu-item>
+        <el-menu-item index="/monitor">
+          <el-icon><Monitor /></el-icon>
+          <span>实时监控</span>
+        </el-menu-item>
+        <el-menu-item index="/logs">
+          <el-icon><Document /></el-icon>
+          <span>操作日志</span>
+        </el-menu-item>
+        <el-menu-item index="/users" v-if="userStore.isAdmin">
+          <el-icon><UserFilled /></el-icon>
+          <span>用户管理</span>
+        </el-menu-item>
+      </el-menu>
+    </el-drawer>
+
+    <!-- PC端侧边栏 -->
+    <el-aside :width="isMobile ? '0' : '200px'" class="sidebar" v-show="!isMobile">
       <div class="logo">
         <h2>eCloud</h2>
       </div>
@@ -37,8 +108,8 @@
 
     <!-- 主内容区 -->
     <el-container>
-      <!-- 头部 -->
-      <el-header class="header">
+      <!-- PC端头部 -->
+      <el-header class="header" v-if="!isMobile">
         <div class="header-left">
           <h3>{{ currentTitle }}</h3>
         </div>
@@ -83,12 +154,12 @@
     </el-container>
 
     <!-- 修改密码对话框 -->
-    <el-dialog v-model="showPasswordDialog" title="修改密码" width="400px">
+    <el-dialog v-model="showPasswordDialog" title="修改密码" :width="isMobile ? '90%' : '400px'">
       <el-form
         ref="passwordFormRef"
         :model="passwordForm"
         :rules="passwordRules"
-        label-width="100px"
+        :label-width="isMobile ? '80px' : '100px'"
       >
         <el-form-item label="旧密码" prop="oldPassword">
           <el-input
@@ -121,7 +192,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { userAPI } from '@/api'
@@ -134,7 +205,8 @@ import {
   Document,
   ArrowDown,
   Key,
-  SwitchButton
+  SwitchButton,
+  Expand
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -143,6 +215,24 @@ const userStore = useUserStore()
 
 const activeMenu = computed(() => route.path)
 const currentTitle = computed(() => route.meta.title || '')
+
+// 响应式状态
+const isMobile = ref(false)
+const drawerVisible = ref(false)
+
+// 检测屏幕尺寸
+const checkMobile = () => {
+  isMobile.value = window.innerWidth <= 768
+}
+
+onMounted(() => {
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', checkMobile)
+})
 
 const showPasswordDialog = ref(false)
 const passwordFormRef = ref(null)
@@ -280,5 +370,61 @@ const handleChangePassword = async () => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+/* 移动端样式 */
+.mobile-header {
+  background: #304156;
+  padding: 0;
+  height: 56px !important;
+  display: flex;
+  align-items: center;
+}
+
+.mobile-header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0 12px;
+}
+
+.menu-toggle {
+  color: #fff !important;
+  padding: 8px;
+}
+
+.mobile-title {
+  flex: 1;
+  text-align: center;
+  color: #fff;
+  font-size: 16px;
+  margin: 0;
+  font-weight: 500;
+}
+
+.mobile-user-dropdown {
+  color: #fff;
+}
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 0;
+}
+
+.drawer-header h2 {
+  color: #304156;
+  font-size: 20px;
+  font-weight: bold;
+  margin: 0;
+}
+
+/* 移动端主内容区调整 */
+@media (max-width: 768px) {
+  .main-content {
+    padding: 12px;
+  }
 }
 </style>

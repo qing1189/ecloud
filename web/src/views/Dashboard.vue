@@ -2,7 +2,7 @@
   <div class="dashboard">
     <!-- 统计卡片 -->
     <el-row :gutter="20" class="stats-row">
-      <el-col :span="6">
+      <el-col :xs="12" :sm="12" :md="6" :lg="6">
         <el-card class="stat-card" shadow="hover">
           <div class="stat-content">
             <div class="stat-icon" style="background: #409eff">
@@ -16,7 +16,7 @@
         </el-card>
       </el-col>
 
-      <el-col :span="6">
+      <el-col :xs="12" :sm="12" :md="6" :lg="6">
         <el-card class="stat-card" shadow="hover">
           <div class="stat-content">
             <div class="stat-icon" style="background: #67c23a">
@@ -24,13 +24,13 @@
             </div>
             <div class="stat-info">
               <div class="stat-value">{{ stats.machineCount }}</div>
-              <div class="stat-label">监控中的云电脑</div>
+              <div class="stat-label">监控云电脑</div>
             </div>
           </div>
         </el-card>
       </el-col>
 
-      <el-col :span="6">
+      <el-col :xs="12" :sm="12" :md="6" :lg="6">
         <el-card class="stat-card" shadow="hover">
           <div class="stat-content">
             <div class="stat-icon" style="background: #e6a23c">
@@ -38,13 +38,13 @@
             </div>
             <div class="stat-info">
               <div class="stat-value">{{ stats.bootCount }}</div>
-              <div class="stat-label">今日开机次数</div>
+              <div class="stat-label">今日开机</div>
             </div>
           </div>
         </el-card>
       </el-col>
 
-      <el-col :span="6">
+      <el-col :xs="12" :sm="12" :md="6" :lg="6">
         <el-card class="stat-card" shadow="hover">
           <div class="stat-content">
             <div class="stat-icon" style="background: #f56c6c">
@@ -52,7 +52,7 @@
             </div>
             <div class="stat-info">
               <div class="stat-value">{{ stats.activeTaskCount }}</div>
-              <div class="stat-label">活跃任务数</div>
+              <div class="stat-label">活跃任务</div>
             </div>
           </div>
         </el-card>
@@ -276,10 +276,12 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   color: white;
+  flex-shrink: 0;
 }
 
 .stat-info {
   flex: 1;
+  min-width: 0;
 }
 
 .stat-value {
@@ -292,6 +294,9 @@ onMounted(() => {
 .stat-label {
   font-size: 14px;
   color: #999;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .recent-logs,
@@ -304,5 +309,49 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+  .stats-row {
+    margin-bottom: 12px;
+  }
+
+  .stat-content {
+    gap: 12px;
+  }
+
+  .stat-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .stat-icon .el-icon {
+    font-size: 24px !important;
+  }
+
+  .stat-value {
+    font-size: 22px;
+  }
+
+  .stat-label {
+    font-size: 12px;
+  }
+
+  .recent-logs,
+  .monitor-status {
+    margin-bottom: 12px;
+  }
+
+  /* 表格在移动端滚动 */
+  .recent-logs :deep(.el-table),
+  .monitor-status :deep(.el-table) {
+    font-size: 13px;
+  }
+
+  .recent-logs :deep(.el-table__header),
+  .monitor-status :deep(.el-table__header) {
+    font-size: 13px;
+  }
 }
 </style>

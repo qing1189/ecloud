@@ -74,14 +74,14 @@
     <el-dialog
       v-model="dialogVisible"
       :title="dialogMode === 'add' ? '添加账号' : '编辑账号'"
-      width="600px"
+      :width="isMobile ? '95%' : '600px'"
       @close="resetForm"
     >
       <el-form
         ref="formRef"
         :model="form"
         :rules="rules"
-        label-width="120px"
+        :label-width="isMobile ? '90px' : '120px'"
       >
         <el-form-item label="账号名称" prop="name">
           <el-input v-model="form.name" placeholder="请输入账号名称" />
@@ -173,7 +173,7 @@
     <el-dialog
       v-model="verifyDialogVisible"
       title="设备验证"
-      width="500px"
+      :width="isMobile ? '95%' : '500px'"
       :close-on-click-modal="false"
       :close-on-press-escape="false"
       :show-close="false"
@@ -221,7 +221,7 @@
     <el-dialog
       v-model="logDialogVisible"
       :title="`${currentAccount.name} - 监控日志`"
-      width="900px"
+      :width="isMobile ? '95%' : '900px'"
       @close="handleCloseLogDialog"
     >
       <div style="margin-bottom: 15px">
@@ -287,6 +287,12 @@ const userStore = useUserStore()
 const loading = ref(false)
 const submitting = ref(false)
 const accounts = ref([])
+
+// 响应式检测
+const isMobile = ref(false)
+const checkMobile = () => {
+  isMobile.value = window.innerWidth <= 768
+}
 
 // 获取用户标签（用于显示创建者）
 const getUserLabel = (userId) => {
@@ -675,10 +681,13 @@ const getStatusTag = (status) => {
 
 onMounted(() => {
   loadAccounts()
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
 })
 
 onBeforeUnmount(() => {
   stopCountdown()
+  window.removeEventListener('resize', checkMobile)
 })
 </script>
 
@@ -690,5 +699,49 @@ onBeforeUnmount(() => {
 .toolbar {
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+  /* 表格横向滚动 */
+  .accounts :deep(.el-table) {
+    font-size: 13px;
+  }
+
+  .accounts :deep(.el-table__header) {
+    font-size: 13px;
+  }
+
+  /* 缩小按钮间距 */
+  .accounts :deep(.el-table .el-button) {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+
+  /* 表单优化 */
+  .accounts :deep(.el-form-item__label) {
+    font-size: 14px;
+  }
+
+  .accounts :deep(.el-input__inner) {
+    font-size: 14px;
+  }
+
+  .accounts :deep(.el-textarea__inner) {
+    font-size: 14px;
+  }
+
+  /* Alert 提示优化 */
+  .accounts :deep(.el-alert) {
+    font-size: 12px;
+    padding: 8px 12px;
+  }
+
+  /* 验证码输入框优化 */
+  .accounts :deep(.el-input-group__append .el-button) {
+    font-size: 12px;
+    padding: 0 8px;
+  }
 }
 </style>

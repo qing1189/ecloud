@@ -92,7 +92,7 @@
     </el-card>
 
     <!-- 详情对话框 -->
-    <el-dialog v-model="detailsVisible" title="事件详情" width="600px">
+    <el-dialog v-model="detailsVisible" title="事件详情" :width="isMobile ? '95%' : '600px'">
       <el-descriptions :column="1" border>
         <el-descriptions-item label="事件ID">
           {{ currentLog?.id }}
@@ -117,7 +117,7 @@
 
       <div v-if="currentLog?.details" style="margin-top: 20px">
         <h4>详细信息</h4>
-        <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto">{{
+        <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 12px;">{{
           JSON.stringify(currentLog.details, null, 2)
         }}</pre>
       </div>
@@ -126,7 +126,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { logAPI } from '@/api'
 import { Search, Refresh } from '@element-plus/icons-vue'
 
@@ -134,6 +134,12 @@ const loading = ref(false)
 const logs = ref([])
 const detailsVisible = ref(false)
 const currentLog = ref(null)
+
+// 响应式检测
+const isMobile = ref(false)
+const checkMobile = () => {
+  isMobile.value = window.innerWidth <= 768
+}
 
 const filters = reactive({
   type: '',
@@ -256,6 +262,12 @@ const getStatusName = (status) => {
 
 onMounted(() => {
   loadLogs()
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', checkMobile)
 })
 </script>
 
@@ -273,5 +285,49 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   margin-top: 20px;
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+  .filter-bar :deep(.el-form--inline .el-form-item) {
+    display: block;
+    margin-right: 0;
+    margin-bottom: 12px;
+  }
+
+  .filter-bar :deep(.el-select) {
+    width: 100% !important;
+  }
+
+  .filter-bar :deep(.el-button) {
+    width: 48%;
+    margin-right: 4%;
+  }
+
+  .filter-bar :deep(.el-button:last-child) {
+    margin-right: 0;
+  }
+
+  .pagination {
+    justify-content: center;
+  }
+
+  /* 表格优化 */
+  .logs :deep(.el-table) {
+    font-size: 13px;
+  }
+
+  .logs :deep(.el-table__header) {
+    font-size: 13px;
+  }
+
+  /* 详情对话框 */
+  .logs :deep(.el-descriptions__label) {
+    font-size: 13px;
+  }
+
+  .logs :deep(.el-descriptions__content) {
+    font-size: 13px;
+  }
 }
 </style>
