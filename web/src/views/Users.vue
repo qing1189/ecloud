@@ -30,23 +30,50 @@
           {{ row.last_login_at ? formatDate(row.last_login_at) : '-' }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="220" fixed="right">
+      <el-table-column label="操作" :width="isMobile ? 80 : 220" fixed="right">
         <template #default="{ row }">
-          <el-button link type="primary" size="small" @click="showEditDialog(row)">
-            编辑
-          </el-button>
-          <el-button link type="primary" size="small" @click="showPasswordDialog(row)">
-            重置密码
-          </el-button>
-          <el-button
-            link
-            type="danger"
-            size="small"
-            @click="handleDelete(row)"
-            :disabled="row.id === userStore.userInfo.id"
-          >
-            删除
-          </el-button>
+          <!-- 移动端：下拉菜单 -->
+          <el-dropdown v-if="isMobile" @command="(cmd) => handleCommand(cmd, row)">
+            <el-button size="small" type="primary">
+              操作<el-icon class="el-icon--right"><ArrowDown /></el-icon>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="edit">
+                  <el-icon><Edit /></el-icon> 编辑
+                </el-dropdown-item>
+                <el-dropdown-item command="password">
+                  <el-icon><Key /></el-icon> 重置密码
+                </el-dropdown-item>
+                <el-dropdown-item
+                  command="delete"
+                  divided
+                  :disabled="row.id === userStore.userInfo.id"
+                >
+                  <el-icon><Delete /></el-icon> 删除
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+
+          <!-- PC端：并排按钮 -->
+          <template v-else>
+            <el-button link type="primary" size="small" @click="showEditDialog(row)">
+              编辑
+            </el-button>
+            <el-button link type="primary" size="small" @click="showPasswordDialog(row)">
+              重置密码
+            </el-button>
+            <el-button
+              link
+              type="danger"
+              size="small"
+              @click="handleDelete(row)"
+              :disabled="row.id === userStore.userInfo.id"
+            >
+              删除
+            </el-button>
+          </template>
         </template>
       </el-table-column>
     </el-table>
@@ -144,7 +171,7 @@
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { userAPI } from '@/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, ArrowDown, Edit, Key, Delete } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 
 const userStore = useUserStore()
@@ -227,6 +254,21 @@ const loadUsers = async () => {
     ElMessage.error('加载用户列表失败')
   } finally {
     loading.value = false
+  }
+}
+
+// 处理下拉菜单命令（移动端）
+const handleCommand = (command, row) => {
+  switch (command) {
+    case 'edit':
+      showEditDialog(row)
+      break
+    case 'password':
+      showPasswordDialog(row)
+      break
+    case 'delete':
+      handleDelete(row)
+      break
   }
 }
 

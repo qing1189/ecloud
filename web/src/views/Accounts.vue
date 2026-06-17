@@ -46,25 +46,52 @@
             {{ formatTime(row.created_at) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="340" fixed="right">
+        <el-table-column label="操作" :width="isMobile ? 80 : 340" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" text type="primary" @click="handleEdit(row)">
-              编辑
-            </el-button>
-            <el-button size="small" text type="primary" @click="handleViewLogs(row)">
-              日志
-            </el-button>
-            <el-button
-              size="small"
-              text
-              :type="row.monitor_config.enabled ? 'warning' : 'success'"
-              @click="handleToggle(row)"
-            >
-              {{ row.monitor_config.enabled ? '停用' : '启用' }}监控
-            </el-button>
-            <el-button size="small" text type="danger" @click="handleDelete(row)">
-              删除
-            </el-button>
+            <!-- 移动端：下拉菜单 -->
+            <el-dropdown v-if="isMobile" @command="(cmd) => handleCommand(cmd, row)">
+              <el-button size="small" type="primary">
+                操作<el-icon class="el-icon--right"><ArrowDown /></el-icon>
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="edit">
+                    <el-icon><Edit /></el-icon> 编辑
+                  </el-dropdown-item>
+                  <el-dropdown-item command="logs">
+                    <el-icon><Document /></el-icon> 日志
+                  </el-dropdown-item>
+                  <el-dropdown-item command="toggle">
+                    <el-icon><Switch /></el-icon>
+                    {{ row.monitor_config.enabled ? '停用' : '启用' }}监控
+                  </el-dropdown-item>
+                  <el-dropdown-item command="delete" divided>
+                    <el-icon><Delete /></el-icon> 删除
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+
+            <!-- PC端：并排按钮 -->
+            <template v-else>
+              <el-button size="small" text type="primary" @click="handleEdit(row)">
+                编辑
+              </el-button>
+              <el-button size="small" text type="primary" @click="handleViewLogs(row)">
+                日志
+              </el-button>
+              <el-button
+                size="small"
+                text
+                :type="row.monitor_config.enabled ? 'warning' : 'success'"
+                @click="handleToggle(row)"
+              >
+                {{ row.monitor_config.enabled ? '停用' : '启用' }}监控
+              </el-button>
+              <el-button size="small" text type="danger" @click="handleDelete(row)">
+                删除
+              </el-button>
+            </template>
           </template>
         </el-table-column>
       </el-table>
@@ -280,7 +307,7 @@
 import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { accountAPI, logAPI } from '@/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Refresh } from '@element-plus/icons-vue'
+import { Plus, Refresh, ArrowDown, Edit, Document, Switch, Delete } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 
 const userStore = useUserStore()
@@ -381,6 +408,24 @@ const loadAccounts = async () => {
     console.error('加载账号列表失败:', error)
   } finally {
     loading.value = false
+  }
+}
+
+// 处理下拉菜单命令（移动端）
+const handleCommand = (command, row) => {
+  switch (command) {
+    case 'edit':
+      handleEdit(row)
+      break
+    case 'logs':
+      handleViewLogs(row)
+      break
+    case 'toggle':
+      handleToggle(row)
+      break
+    case 'delete':
+      handleDelete(row)
+      break
   }
 }
 
